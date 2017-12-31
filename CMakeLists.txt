@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
 
-project(Range-v3 CXX)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+project(range-v3 CXX)
 
 find_package(Doxygen)
 find_package(Git)
@@ -10,6 +12,10 @@ include_directories(include)
 
 enable_testing()
 include(CTest)
+
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_DOCS "Build docs" ON)
+
 find_program(MEMORYCHECK_COMMAND valgrind)
 if(MEMORYCHECK_COMMAND-NOTFOUND)
   message("[W] Valgrind not found")
@@ -70,10 +76,70 @@ elseif(MSVC)
 #   message(FATAL_ERROR "Unknown compiler. Good luck!")
 endif()
 
-add_subdirectory(doc)
-add_subdirectory(test)
-add_subdirectory(example)
-add_subdirectory(perf)
+if(BUILD_DOCS)
+  add_subdirectory(doc)
+endif()
+if(BUILD_TESTS)
+  add_subdirectory(test)
+  add_subdirectory(example)
+  add_subdirectory(perf)
+endif()
 
-install(DIRECTORY include/ DESTINATION include
+add_library(${PROJECT_NAME} INTERFACE)
+
+# Installation (https://github.com/forexample/package-example) {
+
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
+set(include_install_dir "include")
+
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+include(CMakePackageConfigHelpers)
+
+# Use:
+#   * PROJECT_VERSION
+write_basic_package_version_file(
+    "${version_config}" 
+    VERSION vcpkg5
+    COMPATIBILITY SameMajorVersion
+)
+
+# Use:
+#   * targets_export_name
+#   * PROJECT_NAME
+configure_package_config_file(
+    "cmake/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT "${targets_export_name}"
+    LIBRARY DESTINATION "lib"
+    ARCHIVE DESTINATION "lib"
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "${include_install_dir}"
+)
+
+
+install(DIRECTORY include/ DESTINATION "${include_install_dir}"
         FILES_MATCHING PATTERN "*.hpp")
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
+
+# }
