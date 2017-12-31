@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(Range-v3 CXX)
+project(range-v3 CXX)
 
 find_package(Doxygen)
 find_package(Git)
@@ -15,6 +15,8 @@ include(CheckCXXCompilerFlag)
 include(CMakeDependentOption)
 
 option(RANGES_MODULES "Enables Clang Modules." OFF)
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_DOCS "Build docs" ON)
 
 find_program(MEMORYCHECK_COMMAND valgrind)
 if(MEMORYCHECK_COMMAND)
@@ -111,13 +113,15 @@ file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS
 file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS_ABSOLUTE
                   "${CMAKE_SOURCE_DIR}/include/*.hpp")
 
-include(TestHeaders)
-if(RANGE_V3_NO_HEADER_CHECK)
-  add_custom_target(headers SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
-else()
-  add_custom_target(headers ALL SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+if(BUILD_TESTS)
+  include(TestHeaders)
+  if(RANGE_V3_NO_HEADER_CHECK)
+    add_custom_target(headers SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+  else()
+    add_custom_target(headers ALL SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+  endif()
+  generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
 endif()
-generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
 
 # Grab the range-v3 version numbers:
 include(${CMAKE_SOURCE_DIR}/Version.cmake)
@@ -173,10 +177,70 @@ if(NOT RANGE_V3_NEW_VERSION_HPP STREQUAL RANGE_V3_OLD_VERSION_HPP)
   message("  conan upload --all range-v3/${RANGE_V3_VERSION}@ericniebler/stable")
 endif()
 
-add_subdirectory(doc)
-add_subdirectory(test)
-add_subdirectory(example)
-add_subdirectory(perf)
+if(BUILD_DOCS)
+  add_subdirectory(doc)
+endif()
+if(BUILD_TESTS)
+  add_subdirectory(test)
+  add_subdirectory(example)
+  add_subdirectory(perf)
+endif()
 
-install(DIRECTORY include/ DESTINATION include
+add_library(${PROJECT_NAME} INTERFACE)
+
+# Installation (https://github.com/forexample/package-example) {
+
+set(config_install_dir "lib/cmake/${PROJECT_NAME}")
+set(include_install_dir "include")
+
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(targets_export_name "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+include(CMakePackageConfigHelpers)
+
+# Use:
+#   * PROJECT_VERSION
+write_basic_package_version_file(
+    "${version_config}" 
+    VERSION ${RANGE_V3_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+# Use:
+#   * targets_export_name
+#   * PROJECT_NAME
+configure_package_config_file(
+    "cmake/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT "${targets_export_name}"
+    LIBRARY DESTINATION "lib"
+    ARCHIVE DESTINATION "lib"
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "${include_install_dir}"
+)
+
+
+install(DIRECTORY include/ DESTINATION "${include_install_dir}"
         FILES_MATCHING PATTERN "*.hpp")
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
+
+# }
