@@ -130,7 +130,11 @@ write_basic_package_version_file(
 )
 
 install(TARGETS meta range-v3 EXPORT range-v3-targets DESTINATION lib)
-install(EXPORT range-v3-targets FILE range-v3-config.cmake DESTINATION lib/cmake/range-v3)
+install(
+  EXPORT range-v3-targets 
+  NAMESPACE range-v3:: 
+  FILE range-v3-config.cmake 
+  DESTINATION lib/cmake/range-v3)
 install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/range-v3-config-version.cmake
   DESTINATION lib/cmake/range-v3)
