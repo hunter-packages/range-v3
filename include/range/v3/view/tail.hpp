@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -33,18 +33,35 @@ namespace ranges
 {
     inline namespace v3
     {
+        namespace detail
+        {
+            template<typename T>
+            constexpr T prev_or_zero_(T n)
+            {
+                return n == 0 ? T(0) : T(n - 1);
+            }
+        }
+
         /// \addtogroup group-views
         /// @{
         template<typename Rng>
         struct tail_view
           : view_interface<
                 tail_view<Rng>,
-                (range_cardinality<Rng>::value > 0) ?
-                    (cardinality)(range_cardinality<Rng>::value - 1) :
-                    range_cardinality<Rng>::value>
+                (range_cardinality<Rng>::value >= 0)
+                  ? detail::prev_or_zero_(range_cardinality<Rng>::value)
+                  : range_cardinality<Rng>::value>
         {
         private:
             Rng rng_;
+            using size_type_ = range_size_type_t<Rng>;
+            template<typename R>
+            static constexpr size_type_ size_(R &rng)
+            {
+                return range_cardinality<Rng>::value >= 0
+                  ? detail::prev_or_zero_((size_type_)range_cardinality<Rng>::value)
+                  : detail::prev_or_zero_(ranges::size(rng));
+            }
         public:
             using iterator = iterator_t<Rng>;
             using sentinel = sentinel_t<Rng>;
@@ -54,32 +71,36 @@ namespace ranges
               : rng_(static_cast<Rng&&>(rng))
             {
                 CONCEPT_ASSERT(InputRange<Rng>());
-                RANGES_EXPECT(!ForwardRange<Rng>() || !empty(rng_));
             }
             iterator begin()
             {
-                return next(ranges::begin(rng_));
+                return next(ranges::begin(rng_), 1, ranges::end(rng_));
             }
-            CONCEPT_REQUIRES(Range<Rng const>())
-            iterator begin() const
+            template<class CRng = Rng const,
+                CONCEPT_REQUIRES_(Range<CRng>())>
+            iterator_t<CRng> begin() const
             {
-                return next(ranges::begin(rng_));
+                return next(ranges::begin(rng_), 1, ranges::end(rng_));
             }
             sentinel end()
             {
                 return ranges::end(rng_);
             }
-            CONCEPT_REQUIRES(Range<Rng const>())
-            sentinel end() const
+            template<class CRng = Rng const,
+                CONCEPT_REQUIRES_(Range<CRng>())>
+            sentinel_t<CRng> end() const
             {
                 return ranges::end(rng_);
             }
-            CONCEPT_REQUIRES(SizedView<Rng>())
-            constexpr range_size_type_t<Rng> size() const
+            CONCEPT_REQUIRES(SizedRange<Rng>())
+            RANGES_CXX14_CONSTEXPR size_type_ size()
             {
-                return range_cardinality<Rng>::value > 0 ?
-                    (range_size_type_t<Rng>)range_cardinality<Rng>::value - 1 :
-                    ranges::size(rng_) - 1;
+                return tail_view::size_(rng_);
+            }
+            CONCEPT_REQUIRES(SizedRange<Rng const>())
+            constexpr size_type_ size() const
+            {
+                return tail_view::size_(rng_);
             }
             Rng & base()
             {
@@ -96,11 +117,10 @@ namespace ranges
             struct tail_fn
             {
                 template<typename Rng, CONCEPT_REQUIRES_(InputRange<Rng>())>
-                tail_view<all_t<Rng>> operator()(Rng && rng) const
+                meta::if_c<range_cardinality<Rng>::value == 0, all_t<Rng>, tail_view<all_t<Rng>>>
+                operator()(Rng && rng) const
                 {
-                    static_assert(range_cardinality<Rng>::value != 0,
-                        "Can't take the tail of an empty range.");
-                    return tail_view<all_t<Rng>>{all(static_cast<Rng&&>(rng))};
+                    return all(static_cast<Rng&&>(rng));
                 }
 
             #ifndef RANGES_DOXYGEN_INVOKED

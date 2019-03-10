@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //  Copyright Gonzalo Brito Gadeschi
 //
 //  Use, modification and distribution is subject to the
@@ -27,7 +27,6 @@ namespace ranges
 {
     inline namespace v3
     {
-
         namespace view
         {
             /// Half-open range of indices: [from, to).

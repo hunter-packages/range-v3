@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -30,7 +30,7 @@ namespace ranges
         using Accumulateable = meta::strict_and<
             InputIterator<I>,
             IndirectInvocable<Op, T *, projected<I, P>>,
-            Assignable<T&, indirect_result_of_t<Op&(T *, projected<I, P>)>>>;
+            Assignable<T&, indirect_invoke_result_t<Op &, T *, projected<I, P>>>>;
 
         struct accumulate_fn
         {

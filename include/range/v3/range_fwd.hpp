@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -40,34 +40,13 @@
 /// Concept-checking classes and utilities
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_CXX17_COMPAT
 
 namespace ranges
 {
     inline namespace v3
     {
-        inline namespace function_objects {}
-
-        namespace aux
-        {
-            inline namespace function_objects {}
-        }
-
-        namespace view
-        {
-            inline namespace function_objects {}
-        }
-
-        namespace action
-        {
-            inline namespace function_objects {}
-        }
-
-        namespace detail
-        {
-            inline namespace function_objects {}
-        }
+        inline namespace CPOs {}
 
         /// \cond
         namespace _end_
@@ -103,8 +82,9 @@ namespace ranges
         template<typename ...Ts>
         using common_reference_t = meta::_t<common_reference<Ts...>>;
 
-        template<typename, typename = void>
+        template<typename>
         struct result_of;
+
         template<typename Sig>
         using result_of_t = meta::_t<result_of<Sig>>;
 
@@ -329,9 +309,6 @@ namespace ranges
         #endif
 
             // Work around libc++'s buggy std::is_function
-        #if !defined(_LIBCPP_VERSION) || _LIBCPP_VERSION >= 3800
-            using std::is_function;
-        #else
             // Function types here:
             template<typename T>
             char (&is_function_impl_(priority_tag<0>))[1];
@@ -353,7 +330,6 @@ namespace ranges
             struct is_function
               : meta::bool_<sizeof(detail::is_function_impl_<T>(priority_tag<3>{})) == 1>
             {};
-        #endif
 
             template<typename T>
             struct remove_rvalue_reference
@@ -393,12 +369,11 @@ namespace ranges
         struct ordered_less;
         struct ident;
 
-        enum cardinality
+        enum cardinality : std::ptrdiff_t
         {
             infinite = -3,
             unknown = -2,
-            finite = -1,
-            _max_ = INT_MAX
+            finite = -1
         };
 
         template<typename Rng, typename Void = void>
@@ -422,14 +397,8 @@ namespace ranges
         template<typename Cur>
         struct basic_mixin;
 
-        /// \cond
-        namespace _basic_iterator_
-        {
-            template<typename Cur>
-            struct basic_iterator;
-        }
-        using _basic_iterator_::basic_iterator;
-        /// \endcond
+        template<typename Cur>
+        struct RANGES_EMPTY_BASES basic_iterator;
 
         template<cardinality>
         struct basic_view : view_base
@@ -443,14 +412,8 @@ namespace ranges
                  cardinality C = range_cardinality<BaseRng>::value>
         struct view_adaptor;
 
-        /// \cond
-        namespace _common_iterator_
-        {
-            template<typename I, typename S>
-            struct common_iterator;
-        }
-        using _common_iterator_::common_iterator;
-        /// \endcond
+        template<typename I, typename S>
+        struct common_iterator;
 
         template<typename I, typename S>
         using common_iterator_t =
@@ -477,24 +440,21 @@ namespace ranges
     #endif
 
         template<typename I, typename S = I>
-        struct iterator_range;
+        struct RANGES_EMPTY_BASES iterator_range;
 
         template<typename I, typename S = I>
         struct sized_iterator_range;
 
-        template<typename T, bool RValue = false>
+        template<typename T>
         struct reference_wrapper;
 
         template<typename>
         struct is_reference_wrapper;
 
-        template<typename T>
-        using rvalue_reference_wrapper = reference_wrapper<T, true>;
-
         // Views
         //
         template<typename Rng, typename Pred>
-        struct adjacent_filter_view;
+        struct RANGES_EMPTY_BASES adjacent_filter_view;
 
         namespace view
         {
@@ -502,7 +462,7 @@ namespace ranges
         }
 
         template<typename Rng, typename Pred>
-        struct adjacent_remove_if_view;
+        struct RANGES_EMPTY_BASES adjacent_remove_if_view;
 
         namespace view
         {
@@ -512,14 +472,6 @@ namespace ranges
         namespace view
         {
             struct all_fn;
-        }
-
-        template<typename Rng>
-        struct bounded_view;
-
-        namespace view
-        {
-            struct bounded_fn;
         }
 
         template<typename Rng>
@@ -540,12 +492,6 @@ namespace ranges
 
         struct default_sentinel { };
 
-        namespace _counted_iterator_
-        {
-            template<typename I, typename = void>
-            struct counted_iterator;
-        }
-
         template<typename I>
         struct move_iterator;
 
@@ -553,8 +499,8 @@ namespace ranges
         using move_into_iterator =
             basic_iterator<detail::move_into_cursor<I>>;
 
-        template<typename Rng>
-        struct cycled_view;
+        template<typename Rng, bool = (bool) is_infinite<Rng>()>
+        struct RANGES_EMPTY_BASES cycled_view;
 
         namespace view
         {
@@ -656,7 +602,7 @@ namespace ranges
         }
 
         template<typename Rng>
-        struct reverse_view;
+        struct RANGES_EMPTY_BASES reverse_view;
 
         namespace view
         {

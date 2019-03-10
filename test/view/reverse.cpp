@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2015
+//  Copyright Eric Niebler 2015-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -36,6 +36,8 @@ int main()
     CHECK(rng0.size() == 10u);
     ::check_equal(rng0, {9,8,7,6,5,4,3,2,1,0});
     ::check_equal(rng0 | view::reverse, {0,1,2,3,4,5,6,7,8,9});
+    ::check_equal(rng0 | view::reverse | view::reverse, {9,8,7,6,5,4,3,2,1,0});
+    ::check_equal(rng0 | view::reverse | view::reverse | view::reverse, {0,1,2,3,4,5,6,7,8,9});
 
     // Reverse another random-access, non-bounded, sized range
     auto cnt = view::counted(rgv.begin(), 10);
@@ -55,8 +57,7 @@ int main()
     models<concepts::View>(aux::copy(rng2));
     models<concepts::RandomAccessRange>(rng2);
     models<concepts::BoundedRange>(rng2);
-    models<concepts::SizedRange>(rng2);
-    CHECK(rng2.size() == 5u);
+    models_not<concepts::SizedRange>(rng2);
     auto const & crng2 = rng2;
     models_not<concepts::Range>(crng2);
     ::check_equal(rng2, {'o','l','l','e','h'});

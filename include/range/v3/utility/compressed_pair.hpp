@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
@@ -38,7 +38,7 @@ namespace ranges
 
             template<typename List, typename Indices> struct compressed_tuple_;
             template<typename... Ts, std::size_t... Is>
-            struct compressed_tuple_<meta::list<Ts...>, meta::index_sequence<Is...>>
+            struct RANGES_EMPTY_BASES compressed_tuple_<meta::list<Ts...>, meta::index_sequence<Is...>>
               : storage<Ts, Is, Ts...>...
             {
                 static_assert(Same<meta::index_sequence<Is...>,
@@ -159,7 +159,6 @@ namespace ranges
 }
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_MISMATCHED_TAGS
 namespace std
 {

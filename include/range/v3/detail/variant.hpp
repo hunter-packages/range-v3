@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -60,11 +60,8 @@ namespace ranges
             constexpr auto& emplaced_index = static_const<emplaced_index_t<I>>::value;
         }
     #else // RANGES_CXX_INLINE_VARIABLES >= RANGES_CXX_INLINE_VARIABLES_17
-        inline namespace function_objects
-        {
-            template<std::size_t I>
-            inline constexpr emplaced_index_t<I> emplaced_index{};
-        }
+        template<std::size_t I>
+        inline constexpr emplaced_index_t<I> emplaced_index{};
     #endif  // RANGES_CXX_INLINE_VARIABLES
 
         /// \cond
@@ -88,18 +85,6 @@ namespace ranges
           : reference_wrapper<T>
         {
             using reference_wrapper<T>::reference_wrapper;
-        };
-        template<typename T, std::size_t Index>
-        struct indexed_element<T &, Index>
-          : reference_wrapper<T>
-        {
-            using reference_wrapper<T>::reference_wrapper;
-        };
-        template<typename T, std::size_t Index>
-        struct indexed_element<T &&, Index>
-          : reference_wrapper<T, true>
-        {
-            using reference_wrapper<T, true>::reference_wrapper;
         };
         template<std::size_t Index>
         struct indexed_element<void, Index>
@@ -175,10 +160,10 @@ namespace ranges
 
             template<typename T, typename Index>
             struct indexed_datum<T &, Index>
-              : reference_wrapper<T>
+              : reference_wrapper<T &>
             {
                 indexed_datum() = delete;
-                using reference_wrapper<T>::reference_wrapper;
+                using reference_wrapper<T &>::reference_wrapper;
                 constexpr indexed_element<T &, Index::value> ref() const noexcept
                 {
                     return {this->get()};
@@ -186,10 +171,10 @@ namespace ranges
             };
             template<typename T, typename Index>
             struct indexed_datum<T &&, Index>
-              : reference_wrapper<T, true>
+              : reference_wrapper<T &&>
             {
                 indexed_datum() = delete;
-                using reference_wrapper<T, true>::reference_wrapper;
+                using reference_wrapper<T &&>::reference_wrapper;
                 constexpr indexed_element<T &&, Index::value> ref() const noexcept
                 {
                     return {this->get()};
@@ -318,7 +303,7 @@ namespace ranges
             template<typename Fun, typename Proj = indexed_element_fn>
             constexpr int variant_visit_(std::size_t, variant_nil, Fun, Proj = {})
             {
-                return 0;
+                return (RANGES_EXPECT(false), 0);
             }
             template<typename Data, typename Fun, typename Proj = indexed_element_fn>
             constexpr int variant_visit_(std::size_t n, Data &self, Fun fun, Proj proj = {})
@@ -406,14 +391,14 @@ namespace ranges
                 }
                 template<typename U>
                 meta::if_<std::is_object<U>>
-                    operator()(indexed_datum<U, meta::size_t<N>> &u)
+                operator()(indexed_datum<U, meta::size_t<N>> &u)
                     noexcept(std::is_nothrow_constructible<U, Ts...>::value)
                 {
                     this->construct_(u.get(), meta::make_index_sequence<sizeof...(Ts)>{});
                 }
                 template<typename U>
                 meta::if_<meta::not_<std::is_object<U>>>
-                    operator()(indexed_datum<U, meta::size_t<N>> &u)
+                operator()(indexed_datum<U, meta::size_t<N>> &u)
                     noexcept(std::is_nothrow_constructible<detail::decay_t<U>, Ts...>::value)
                 {
                     this->construct_(u, meta::make_index_sequence<sizeof...(Ts)>{});
@@ -434,6 +419,12 @@ namespace ranges
                 void operator()(indexed_element<U, N> t) const noexcept
                 {
                     *t_ = std::addressof(t.get());
+                }
+                template<typename U>
+                void operator()(indexed_element<U &&, N> t) const noexcept
+                {
+                    U &&u = t.get();
+                    *t_ = std::addressof(u);
                 }
                 void operator()(indexed_element<void, N>) const noexcept
                 {}
@@ -518,9 +509,9 @@ namespace ranges
             template<typename Fun, typename... Ts, std::size_t... Is>
             struct variant_visit_results<
                 Fun, meta::list<Ts...>, meta::index_sequence<Is...>,
-                meta::void_<result_of_t<Fun&(indexed_element<Ts, Is>)>...>>
+                meta::void_<invoke_result_t<Fun&, indexed_element<Ts, Is>>...>>
             {
-                using type = variant<result_of_t<Fun&(indexed_element<Ts, Is>)>...>;
+                using type = variant<invoke_result_t<Fun&, indexed_element<Ts, Is>>...>;
             };
             template<typename Fun, typename... Ts>
             using variant_visit_results_t = meta::_t<
@@ -537,10 +528,10 @@ namespace ranges
           , private detail::variant_base<variant<Ts...>>
         {
         private:
-            friend struct detail::variant_core_access;
+            friend detail::variant_core_access;
             template<typename...>
             friend struct variant;
-            friend struct detail::variant_base<variant, false>;
+            friend detail::variant_base<variant, false>;
             template<std::size_t Index>
             using datum_t =
                 detail::variant_datum_t<Index, Ts...>;
@@ -785,7 +776,6 @@ namespace ranges
 }
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_MISMATCHED_TAGS
 
 namespace std

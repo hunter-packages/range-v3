@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //  Copyright Gonzalo Brito Gadeschi 2017
 //
 //  Use, modification and distribution is subject to the
@@ -31,12 +31,82 @@ int main()
         CHECK(ranges::at(vi, 2) == 3);
         CHECK(ranges::at(vi, 3) == 4);
 
-        try {
+        try
+        {
             ranges::at(vi, 4);
             CHECK(false);
-        } catch(std::out_of_range const& e) {
+        }
+        catch(std::out_of_range const& e)
+        {
             CHECK(ranges::equal(ranges::view::c_str(e.what()),
                                 ranges::view::c_str("ranges::at")));
+        }
+
+        try
+        {
+            ranges::at(vi, -1);
+            CHECK(false);
+        }
+        catch(std::out_of_range const& e)
+        {
+            CHECK(ranges::equal(ranges::view::c_str(e.what()),
+                                ranges::view::c_str("ranges::at")));
+        }
+
+        auto viv = ranges::make_iterator_range(vi.begin(), vi.end());
+        CHECK(viv.at(0) == 1);
+        CHECK(viv.at(1) == 2);
+        CHECK(viv.at(2) == 3);
+        CHECK(viv.at(3) == 4);
+
+        try
+        {
+            viv.at(4);
+            CHECK(false);
+        }
+        catch(std::out_of_range const& e)
+        {
+            CHECK(ranges::equal(ranges::view::c_str(e.what()),
+                                ranges::view::c_str("view_interface::at")));
+        }
+
+        try
+        {
+            viv.at(-1);
+            CHECK(false);
+        }
+        catch(std::out_of_range const& e)
+        {
+            CHECK(ranges::equal(ranges::view::c_str(e.what()),
+                                ranges::view::c_str("view_interface::at")));
+        }
+
+        const auto cviv = viv;
+        CHECK(cviv.at(0) == 1);
+        CHECK(cviv.at(1) == 2);
+        CHECK(cviv.at(2) == 3);
+        CHECK(cviv.at(3) == 4);
+
+        try
+        {
+            cviv.at(4);
+            CHECK(false);
+        }
+        catch(std::out_of_range const& e)
+        {
+            CHECK(ranges::equal(ranges::view::c_str(e.what()),
+                                ranges::view::c_str("view_interface::at")));
+        }
+
+        try
+        {
+            cviv.at(-1);
+            CHECK(false);
+        }
+        catch(std::out_of_range const& e)
+        {
+            CHECK(ranges::equal(ranges::view::c_str(e.what()),
+                                ranges::view::c_str("view_interface::at")));
         }
     }
 
@@ -49,7 +119,7 @@ int main()
     }
 
     #if RANGES_CXX_CONSTEXPR >= RANGES_CXX_CONSTEXPR_14
-    {  
+    {
         constexpr int vi[4] = {1, 2, 3, 4};
         constexpr int vi0 = ranges::index(vi, 0);
         static_assert(vi0 == 1, "");

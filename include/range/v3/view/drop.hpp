@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -16,12 +16,13 @@
 
 #include <type_traits>
 #include <meta/meta.hpp>
-#include <range/v3/detail/satisfy_boost_range.hpp>
+#include <range/v3/iterator_range.hpp>
+#include <range/v3/range_concepts.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_traits.hpp>
-#include <range/v3/range_concepts.hpp>
 #include <range/v3/view_interface.hpp>
-#include <range/v3/iterator_range.hpp>
+#include <range/v3/algorithm/min.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/utility/box.hpp>
 #include <range/v3/utility/functional.hpp>
 #include <range/v3/utility/iterator_traits.hpp>
@@ -37,7 +38,7 @@ namespace ranges
         /// \addtogroup group-views
         /// @{
         template<typename Rng>
-        struct drop_view
+        struct RANGES_EMPTY_BASES drop_view
           : view_interface<drop_view<Rng>, is_finite<Rng>::value ? finite : range_cardinality<Rng>::value>
           , private detail::non_propagating_cache<
                 iterator_t<Rng>,
@@ -50,14 +51,20 @@ namespace ranges
             Rng rng_;
             difference_type_ n_;
 
-            // RandomAccessRange == true
-            iterator_t<Rng> get_begin_(std::true_type) const
+            template<typename CRng = Rng const>
+            iterator_t<CRng> get_begin_(std::true_type, std::true_type) const
             {
+                CONCEPT_ASSERT(RandomAccessRange<CRng>());
                 return next(ranges::begin(rng_), n_, ranges::end(rng_));
             }
-            // RandomAccessRange == false
-            iterator_t<Rng> get_begin_(std::false_type)
+            iterator_t<Rng> get_begin_(std::true_type, std::false_type)
             {
+                CONCEPT_ASSERT(RandomAccessRange<Rng>());
+                return next(ranges::begin(rng_), n_, ranges::end(rng_));
+            }
+            iterator_t<Rng> get_begin_(std::false_type, detail::any)
+            {
+                CONCEPT_ASSERT(!RandomAccessRange<Rng>());
                 using cache_t = detail::non_propagating_cache<
                     iterator_t<Rng>, drop_view<Rng>>;
                 auto &begin_ = static_cast<cache_t&>(*this);
@@ -74,21 +81,21 @@ namespace ranges
             }
             iterator_t<Rng> begin()
             {
-                return this->get_begin_(RandomAccessRange<Rng>{});
+                return this->get_begin_(RandomAccessRange<Rng>{}, std::false_type{});
             }
             sentinel_t<Rng> end()
             {
                 return ranges::end(rng_);
             }
-            template<typename BaseRng = Rng,
-                CONCEPT_REQUIRES_(RandomAccessRange<BaseRng const>())>
-            iterator_t<BaseRng const> begin() const
+            template<typename CRng = Rng const,
+                CONCEPT_REQUIRES_(RandomAccessRange<CRng>())>
+            iterator_t<CRng> begin() const
             {
-                return this->get_begin_(std::true_type{});
+                return this->get_begin_(std::true_type{}, std::true_type{});
             }
-            template<typename BaseRng = Rng,
-                CONCEPT_REQUIRES_(RandomAccessRange<BaseRng const>())>
-            sentinel_t<BaseRng const> end() const
+            template<typename CRng = Rng const,
+                CONCEPT_REQUIRES_(RandomAccessRange<CRng>())>
+            sentinel_t<CRng> end() const
             {
                 return ranges::end(rng_);
             }
@@ -145,11 +152,12 @@ namespace ranges
                 {
                     return {all(static_cast<Rng&&>(rng)), n};
                 }
-                template<typename Rng, CONCEPT_REQUIRES_(!View<uncvref_t<Rng>>() && std::is_lvalue_reference<Rng>())>
+                template<typename Rng, CONCEPT_REQUIRES_(!View<uncvref_t<Rng>>() &&
+                    std::is_lvalue_reference<Rng>() && SizedRange<Rng>())>
                 static iterator_range<iterator_t<Rng>, sentinel_t<Rng>>
                 invoke_(Rng && rng, range_difference_type_t<Rng> n, concepts::RandomAccessRange*)
                 {
-                    return {next(begin(rng), n), end(rng)};
+                    return {begin(rng) + ranges::min(n, distance(rng)), end(rng)};
                 }
             public:
                 template<typename Rng,

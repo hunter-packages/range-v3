@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -43,25 +43,25 @@ namespace boost                                                                 
         view_name<Ts...>,                                                       \
         ::meta::if_c<(bool)::ranges::BoundedRange<view_name<Ts...>>()>>         \
     {                                                                           \
-        using type = ::ranges::iterator_t<view_name<Ts...>>;              \
+        using type = ::ranges::iterator_t<view_name<Ts...>>;                    \
     };                                                                          \
     template<typename... Ts>                                                    \
     struct range_const_iterator<                                                \
         view_name<Ts...>,                                                       \
         ::meta::if_c<(bool)::ranges::BoundedRange<view_name<Ts...> const>()>>   \
     {                                                                           \
-        using type = ::ranges::iterator_t<view_name<Ts...> const>;        \
+        using type = ::ranges::iterator_t<view_name<Ts...> const>;              \
     };                                                                          \
     template<typename... Ts>                                                    \
     struct range_value<view_name<Ts...>>                                        \
     {                                                                           \
-        using type = ::ranges::range_value_type_t<view_name<Ts...>>;                 \
+        using type = ::ranges::range_value_type_t<view_name<Ts...>>;            \
     };                                                                          \
     template<typename... Ts>                                                    \
     struct range_size<view_name<Ts...>>                                         \
       : ::meta::if_c<                                                           \
             (bool)::ranges::BoundedRange<view_name<Ts...>>(),                   \
-            ::meta::defer<::ranges::range_size_type_t, view_name<Ts...>>,            \
+            ::meta::defer<::ranges::range_size_type_t, view_name<Ts...>>,       \
             ::meta::nil_>                                                       \
     {                                                                           \
     };                                                                          \
@@ -69,7 +69,7 @@ namespace boost                                                                 
     struct range_size<view_name<Ts...> const>                                   \
       : ::meta::if_c<                                                           \
             (bool)::ranges::BoundedRange<view_name<Ts...> const>(),             \
-            ::meta::defer<::ranges::range_size_type_t, view_name<Ts...> const>,      \
+            ::meta::defer<::ranges::range_size_type_t, view_name<Ts...> const>, \
             ::meta::nil_>                                                       \
     {                                                                           \
     };                                                                          \

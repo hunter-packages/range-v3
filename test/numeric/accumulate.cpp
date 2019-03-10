@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -37,7 +37,7 @@ template<class Iter, class Sent = Iter>
 void test()
 {
     int ia[] = {1, 2, 3, 4, 5, 6};
-    constexpr unsigned sc = ranges::size(ia);
+    constexpr auto sc = ranges::size(ia);
     CHECK(ranges::accumulate(Iter(ia), Sent(ia), 0) == 0);
     CHECK(ranges::accumulate(Iter(ia), Sent(ia), 10) == 10);
     CHECK(ranges::accumulate(Iter(ia), Sent(ia+1), 0) == 1);

@@ -1,53 +1,39 @@
+include(../cmake/ranges_diagnostics.cmake)
+
+add_library(rv3-tests INTERFACE)
+target_link_libraries(rv3-tests INTERFACE range-v3)
+if(NOT RANGE_V3_TRY_THREAD)
+    target_compile_definitions(rv3-tests INTERFACE "RANGES_CXX_THREAD=0")
+endif()
+if (RANGE_V3_HAS_FCOROUTINES_TS)
+    target_compile_options(rv3-tests INTERFACE "-fcoroutines-ts")
+endif()
+
+function(rv3_add_test TESTNAME EXENAME FIRSTSOURCE)
+  add_executable(${EXENAME} ${FIRSTSOURCE} ${ARGN})
+  target_link_libraries(${EXENAME} rv3-tests)
+  add_test(${TESTNAME} ${EXENAME})
+endfunction(rv3_add_test)
+
 add_subdirectory(action)
 add_subdirectory(algorithm)
 add_subdirectory(numeric)
 add_subdirectory(utility)
 add_subdirectory(view)
+add_subdirectory(experimental)
 
-add_executable(config config.cpp)
-add_test(test.config config)
-
-add_executable(container_conversion container_conversion.cpp)
-add_test(test.container_conversion container_conversion)
-
-add_executable(constexpr_core constexpr_core.cpp)
-add_test(test.constexpr_core constexpr_core)
-
-add_executable(view_facade view_facade.cpp)
-add_test(test.view_facade view_facade)
-
-add_executable(view_adaptor view_adaptor.cpp)
-add_test(test.view_adaptor view_adaptor)
-
-add_executable(index index.cpp)
-add_test(test.index index)
-
-add_executable(iterator_range iterator_range.cpp)
-add_test(test.iterator_range iterator_range)
-
-add_executable(multiple multiple1.cpp multiple2.cpp)
-add_test(test.multiple multiple)
-
-add_executable(distance distance.cpp)
-add_test(test.distance distance)
-
-add_executable(to_container to_container.cpp)
-add_test(test.to_container to_container)
-
-add_executable(getlines getlines.cpp)
-add_test(test.getlines getlines)
-
-add_executable(istream_range istream_range.cpp)
-add_test(test.istream_range istream_range)
-
-add_executable(bug474 bug474.cpp)
-add_test(test.bug474 bug474)
-
-add_executable(bug566 bug566.cpp)
-add_test(test.bug566 bug566)
-
-add_executable(span span.cpp)
-add_test(test.span span)
-
-add_executable(generator generator.cpp)
-add_test(test.generator generator)
+rv3_add_test(test.config config config.cpp)
+rv3_add_test(test.container_conversion container_conversion container_conversion.cpp)
+rv3_add_test(test.constexpr_core constexpr_core constexpr_core.cpp)
+rv3_add_test(test.view_facade view_facade view_facade.cpp)
+rv3_add_test(test.view_adaptor view_adaptor view_adaptor.cpp)
+rv3_add_test(test.index index index.cpp)
+rv3_add_test(test.iterator_range iterator_range iterator_range.cpp)
+rv3_add_test(test.multiple multiple multiple1.cpp multiple2.cpp)
+rv3_add_test(test.distance distance distance.cpp)
+rv3_add_test(test.to_container to_container to_container.cpp)
+rv3_add_test(test.getlines getlines getlines.cpp)
+rv3_add_test(test.istream_range istream_range istream_range.cpp)
+rv3_add_test(test.bug474 bug474 bug474.cpp)
+rv3_add_test(test.bug566 bug566 bug566.cpp)
+rv3_add_test(test.span span span.cpp)

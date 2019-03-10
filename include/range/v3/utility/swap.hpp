@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -34,10 +34,10 @@ namespace ranges
         {
             template<typename T>
             struct is_movable_
-              : meta::and_<
-                    std::is_object<T>,
-                    std::is_move_constructible<T>,
-                    std::is_move_assignable<T>>
+              : meta::bool_<
+                    std::is_object<T>::value &&
+                    std::is_move_constructible<T>::value &&
+                    std::is_move_assignable<T>::value>
             {};
         }
         /// \endcond
@@ -85,6 +85,10 @@ namespace ranges
 
             template<typename T, std::size_t N>
             void swap(T (&)[N], T (&)[N]) = delete;
+
+#ifdef RANGES_WORKAROUND_MSVC_620035
+            void swap();
+#endif
 
             template<typename T, typename U,
                 typename = decltype(swap(std::declval<T>(), std::declval<U>()))>
@@ -208,10 +212,14 @@ namespace ranges
             //    std::reference_wrapper<T>. How do I make it model IndirectlySwappable?
             // A: With an overload of iter_swap.
 
-            // Intentionally create an ambiguity with std::swap, which is
+            // Intentionally create an ambiguity with std::iter_swap, which is
             // (possibly) unconstrained.
             template<typename T>
             void iter_swap(T, T) = delete;
+
+#ifdef RANGES_WORKAROUND_MSVC_620035
+            void iter_swap();
+#endif
 
             template<typename T, typename U,
                 typename = decltype(iter_swap(std::declval<T>(), std::declval<U>()))>
@@ -247,8 +255,7 @@ namespace ranges
                 RANGES_CXX14_CONSTEXPR
                 meta::if_c<
                     !is_adl_indirectly_swappable_<I0, I1>::value &&
-                    is_swappable_with<decltype(*std::declval<I0 &>()),
-                                      decltype(*std::declval<I1 &>())>::value>
+                    is_swappable_with<reference_t<I0>, reference_t<I1>>::value>
                 operator()(I0 &&a, I1 &&b) const
                 RANGES_AUTO_RETURN_NOEXCEPT
                 (
@@ -264,9 +271,7 @@ namespace ranges
                 RANGES_CXX14_CONSTEXPR
                 meta::if_c<
                     !is_adl_indirectly_swappable_<I0, I1>::value &&
-                    !is_swappable_with<
-                        decltype(*std::declval<I0 &>()),
-                        decltype(*std::declval<I1 &>())>::value &&
+                    !is_swappable_with<reference_t<I0>, reference_t<I1>>::value &&
                     is_indirectly_movable<I0, I1>::value &&
                     is_indirectly_movable<I1, I0>::value>
                 operator()(I0 &&a, I1 &&b) const
@@ -338,13 +343,17 @@ namespace ranges
                 adl_swap_detail::is_nothrow_indirectly_swappable_<T, U>>
         {};
 
-        /// \ingroup group-utility
-        /// \relates adl_swap_detail::swap_fn
-        RANGES_INLINE_VARIABLE(adl_swap_detail::swap_fn, swap)
+        inline namespace CPOs
+        {
+            /// \ingroup group-utility
+            /// \relates adl_swap_detail::swap_fn
+            RANGES_INLINE_VARIABLE(adl_swap_detail::swap_fn, swap)
 
-        /// \ingroup group-utility
-        /// \relates adl_swap_detail::iter_swap_fn
-        RANGES_INLINE_VARIABLE(adl_swap_detail::iter_swap_fn, iter_swap)
+            /// \ingroup group-utility
+            /// \relates adl_swap_detail::iter_swap_fn
+            RANGES_INLINE_VARIABLE(adl_swap_detail::iter_swap_fn, iter_swap)
+        }
+
 
         /// \cond
         struct indirect_swap_fn

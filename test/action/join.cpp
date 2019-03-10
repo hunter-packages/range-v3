@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -28,7 +28,7 @@ int main()
 
     auto s2 = v | view::transform(view::all) | action::join;
     static_assert(std::is_same<decltype(s2), std::vector<char>>::value, "");
-    CHECK(equal(s, s2));
+    CHECK(std::string(s2.begin(), s2.end()) == "hello world");
 
     return ::test_result();
 }

@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -59,9 +59,9 @@ int main()
 
     {
       std::string s{"abc"};
-      any_random_access_view<any_random_access_view<char>> v1 =
+      any_view<any_view<char, category::random_access>, category::random_access> v1 =
         view::single(s | view::drop(1));
-      any_random_access_view<any_random_access_view<char>> v2 =
+      any_view<any_view<char, category::random_access>, category::random_access> v2 =
         view::single(s | view::drop(2));
       auto v3 = view::concat(v1, v2);
 
@@ -93,7 +93,7 @@ int main()
     std::set<int> s = view::ints | view::take(10);
     ::check_equal(s, {0,1,2,3,4,5,6,7,8,9});
 
-    static_assert(!ranges::is_view<std::initializer_list<int>>::value, "");
+    static_assert(!View<std::initializer_list<int>>(), "");
 
     return ::test_result();
 }

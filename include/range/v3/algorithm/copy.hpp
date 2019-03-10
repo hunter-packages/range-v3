@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -42,6 +42,7 @@ namespace ranges
                     WeaklyIncrementable<O>() &&
                     IndirectlyCopyable<I, O>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             tagged_pair<tag::in(I), tag::out(O)>
             operator()(I begin, S end, O out) const
             {
@@ -57,6 +58,7 @@ namespace ranges
                     WeaklyIncrementable<O>() &&
                     IndirectlyCopyable<I, O>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             tagged_pair<tag::in(safe_iterator_t<Rng>), tag::out(O)>
             operator()(Rng &&rng, O out) const
             {

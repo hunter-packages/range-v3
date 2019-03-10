@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -26,6 +26,9 @@
 #include "./debug_view.hpp"
 #include "./simple_test.hpp"
 #include "./test_iterators.hpp"
+
+RANGES_DIAGNOSTIC_PUSH
+RANGES_DIAGNOSTIC_IGNORE_DEPRECATED_THIS_CAPTURE
 
 struct check_equal_fn
 {
@@ -61,7 +64,10 @@ struct check_equal_fn
     }
 };
 
-RANGES_INLINE_VARIABLE(check_equal_fn, check_equal)
+inline namespace function_objects
+{
+    RANGES_INLINE_VARIABLE(check_equal_fn, check_equal)
+}
 
 template<typename Expected, typename Actual>
 void has_type(Actual &&)
@@ -104,8 +110,6 @@ private:
     }
 public:
     function_ref() = default;
-    function_ref(function_ref &) = default;
-    function_ref(function_ref const &) = default;
     template<typename T>
     function_ref(T const &t)
       : data_(&t)
@@ -296,5 +300,7 @@ struct MoveOnlyString
         return sout << '"' << str.sz_ << '"';
     }
 };
+
+RANGES_DIAGNOSTIC_POP
 
 #endif

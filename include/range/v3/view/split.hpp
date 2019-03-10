@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -59,25 +59,27 @@ namespace ranges
             private:
                 friend range_access;
                 friend split_view;
+                friend struct cursor<!IsConst>;
                 bool zero_;
-                iterator_t<Rng> cur_;
-                sentinel_t<Rng> last_;
+                using CRng = meta::const_if_c<IsConst, Rng>;
+                iterator_t<CRng> cur_;
+                sentinel_t<CRng> last_;
                 using fun_ref_t = semiregular_ref_or_val_t<Fun, IsConst>;
                 fun_ref_t fun_;
 
                 struct search_pred
                 {
                     bool zero_;
-                    iterator_t<Rng> first_;
-                    sentinel_t<Rng> last_;
+                    iterator_t<CRng> first_;
+                    sentinel_t<CRng> last_;
                     fun_ref_t fun_;
-                    bool operator()(iterator_t<Rng> cur) const
+                    bool operator()(iterator_t<CRng> cur) const
                     {
                         return (zero_ && cur == first_) || (cur != last_ && !invoke(fun_, cur, last_).first);
                     }
                 };
                 using reference_ =
-                    indirect_view<take_while_view<iota_view<iterator_t<Rng>>, search_pred>>;
+                    indirect_view<take_while_view<iota_view<iterator_t<CRng>>, search_pred>>;
                 reference_ read() const
                 {
                     return reference_{{view::iota(cur_), {zero_, cur_, last_, fun_}}};
@@ -107,7 +109,7 @@ namespace ranges
                 {
                     return cur_ == that.cur_;
                 }
-                cursor(fun_ref_t fun, iterator_t<Rng> first, sentinel_t<Rng> last)
+                cursor(fun_ref_t fun, iterator_t<CRng> first, sentinel_t<CRng> last)
                   : cur_(first), last_(last), fun_(fun)
                 {
                     // For skipping an initial zero-length match
@@ -116,13 +118,19 @@ namespace ranges
                 }
             public:
                 cursor() = default;
+                template<bool Other,
+                    CONCEPT_REQUIRES_(IsConst && !Other)>
+                cursor(cursor<Other> that)
+                  : cursor{std::move(that.cur_), std::move(that.last_), std::move(that.fun_)}
+                {}
             };
             cursor<false> begin_cursor()
             {
                 return {fun_, ranges::begin(rng_), ranges::end(rng_)};
             }
-            CONCEPT_REQUIRES(Invocable<Fun const&, iterator_t<Rng>,
-                sentinel_t<Rng>>() && Range<Rng const>())
+            template<typename CRng = Rng const,
+                CONCEPT_REQUIRES_(Range<CRng>() &&
+                    Invocable<Fun const&, iterator_t<CRng>, sentinel_t<CRng>>())>
             cursor<true> begin_cursor() const
             {
                 return {fun_, ranges::begin(rng_), ranges::end(rng_)};
@@ -151,23 +159,28 @@ namespace ranges
                 struct predicate_pred
                 {
                     semiregular_t<Pred> pred_;
+
+                    template<class S, CONCEPT_REQUIRES_(Sentinel<S, iterator_t<Rng>>())>
                     std::pair<bool, iterator_t<Rng>>
-                    operator()(iterator_t<Rng> cur, sentinel_t<Rng> end) const
+                    operator()(iterator_t<Rng> cur, S end) const
                     {
                         auto where = ranges::find_if_not(cur, end, std::ref(pred_));
-                        return std::make_pair(cur != where, where);
+                        return std::pair<bool, iterator_t<Rng>>{cur != where, where};
                     }
                 };
                 template<typename Rng>
                 struct element_pred
                 {
                     range_value_type_t<Rng> val_;
+
+                    template<class S, CONCEPT_REQUIRES_(Sentinel<S, iterator_t<Rng>>())>
                     std::pair<bool, iterator_t<Rng>>
-                    operator()(iterator_t<Rng> cur, sentinel_t<Rng> end) const
+                    operator()(iterator_t<Rng> cur, S end) const
                     {
-                        using P = std::pair<bool, iterator_t<Rng>>;
                         RANGES_EXPECT(cur != end);
-                        return *cur == val_ ? P{true, ranges::next(cur)} : P{false, cur};
+                        bool const match = *cur == val_;
+                        if (match) ++cur;
+                        return std::pair<bool, iterator_t<Rng>>{match, cur};
                     }
                 };
                 template<typename Rng, typename Sub>
@@ -175,25 +188,27 @@ namespace ranges
                 {
                     all_t<Sub> sub_;
                     range_difference_type_t<Sub> len_;
+
                     subrange_pred() = default;
                     subrange_pred(Sub && sub)
                       : sub_(all(static_cast<Sub&&>(sub))), len_(distance(sub_))
                     {}
+                    template<class S, CONCEPT_REQUIRES_(Sentinel<S, iterator_t<Rng>>())>
                     std::pair<bool, iterator_t<Rng>>
-                    operator()(iterator_t<Rng> cur, sentinel_t<Rng> end) const
+                    operator()(iterator_t<Rng> cur, S end) const
                     {
+                        using P = std::pair<bool, iterator_t<Rng>>;
                         RANGES_EXPECT(cur != end);
-                        if(SizedSentinel<sentinel_t<Rng>, iterator_t<Rng>>() &&
-                            distance(cur, end) < len_)
-                            return {false, cur};
+                        if(SizedSentinel<S, iterator_t<Rng>>() && distance(cur, end) < len_)
+                            return P{false, cur};
                         auto pat_cur = ranges::begin(sub_);
                         auto pat_end = ranges::end(sub_);
                         for(;; ++cur, ++pat_cur)
                         {
                             if(pat_cur == pat_end)
-                                return {true, cur};
+                                return P{true, cur};
                             if(cur == end || !(*cur == *pat_cur))
-                                return {false, cur};
+                                return P{false, cur};
                         }
                     }
                 };
@@ -202,9 +217,10 @@ namespace ranges
                 using FunctionConcept = meta::and_<
                     ForwardRange<Rng>,
                     Invocable<Fun&, iterator_t<Rng>, sentinel_t<Rng>>,
+                    Invocable<Fun&, iterator_t<Rng>, iterator_t<Rng>>,
                     CopyConstructible<Fun>,
                     ConvertibleTo<
-                        result_of_t<Fun&(iterator_t<Rng>, sentinel_t<Rng>)>,
+                        invoke_result_t<Fun&, iterator_t<Rng>, sentinel_t<Rng>>,
                         std::pair<bool, iterator_t<Rng>>>>;
 
                 template<typename Rng, typename Fun>

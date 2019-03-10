@@ -54,7 +54,9 @@ The code is known to work on the following compilers:
 
 - clang 3.6.2 (or later)
 - GCC 4.9.1 (or later) (C++14 support requires GCC 5.2; C++14 "extended constexpr" support is poor before 6.1.)
-- "Clang with Microsoft CodeGen" (Clang/C2) VS2015 Update 3 (or later)
+- Clang/LLVM 6 (or later) on Windows (older versions may work - we haven't tested.)
+
+[ Note: We've "retired" support for Clang/C2 with the VS2015 toolset (i.e., the `v140_clang_c2` toolset) which Microsoft no longer supports for C++ use. We no longer have CI runs, but haven't gone out of our way to break anything, so it will likely continue to work. ]
 
 **Development Status:** This code is fairly stable, well-tested, and suitable for casual use, although currently lacking documentation. No promise is made about support or long-term stability. This code *will* evolve without regard to backwards compatibility.
 
@@ -64,11 +66,73 @@ The code is known to work on the following compilers:
 
 Release Notes:
 --------------
-
+* **0.4.0** Oct 18, 2018
+  - Minor interface-breaking changes:
+    * `single_view` returns by `const &` (see [#817](https://github.com/ericniebler/range-v3/issues/817)).
+    * `reverse_view` of a non-Sized, non-Bounded RandomAccess range (eg., a null-terminated string) no longer satisfies SizedRange.
+    * The `generate` and `generate_n` views now return the generated values by xvalue reference (`T &&`) to the value cached within the view (see [#905](https://github.com/ericniebler/range-v3/issues/905)).
+    * Views no longer prefer returning constant iterators when they can; some views have different constant and mutable iterators.
+  - Enhancements:
+    * Views can successfully adapt other views that have different constant and mutable iterators.
+    * The `single` and `empty` views are much closer to the versions as specified in [P0896](http://wg21.link/P0896).
+  - Bug fixes:
+    * "single_view should not copy the value" [#817](https://github.com/ericniebler/range-v3/issues/817).
+    * "Calling back() on strided range does not return the correct last value in range" [#901](https://github.com/ericniebler/range-v3/issues/901).
+    * "generate(foo) | take(n) calls foo n+1 times" [#819](https://github.com/ericniebler/range-v3/issues/819).
+    * "generate seems broken with move-only return types" [#905](https://github.com/ericniebler/range-v3/issues/905).
+    * "Unexpected behavior in generate with return by reference" [#807](https://github.com/ericniebler/range-v3/issues/807).
+    * "Inconsistent behaviour of ranges::distance with ranges::view::zip using infinite views." [#783](https://github.com/ericniebler/range-v3/issues/783).
+    * "Infinite loop when using ranges::view::cycle with an infinite range" [#780](https://github.com/ericniebler/range-v3/issues/780).
+    * "Composing ranges::view::cycle with ranges::view::slice" [#778](https://github.com/ericniebler/range-v3/issues/778).
+    * "cartesian_product view, now with moar bugs." [#919](https://github.com/ericniebler/range-v3/issues/919).
+* **0.3.7** Sept 19, 2018
+  - Improved support for clang-cl (thanks to @CaseyCarter).
+  - Fix for `any_view<T, category::sized | category::input>` (see #869).
+  - Fix `iter_move` of a `ranges::reverse_iterator` (see #888).
+  - Fix `move_sentinel` comparisons (see #889).
+  - Avoid ambiguity created by `boost::advance` and `std::advance` (see #893).
+* **0.3.6** May 15, 2018
+  - NEW: `view::exclusive_scan` (thanks to GitHub user @mitsutaka-takeda).
+  - All views get non-`const` overloads of `.empty()` and `.size()` (see [ericniebler/stl2\#793](https://github.com/ericniebler/stl2/issues/793)).
+  - Upgrade Conan support for conan 1.0.
+  - `subspan` interface tweaks.
+  - Fix bug in `view::split` (see [this stackoverflow question](https://stackoverflow.com/questions/49015671)).
+  - Fix bug in `view::stride` (see [ericniebler/stl2\#805](https://github.com/ericniebler/stl2/issues/805)).
+  - Fix `const`-correctness problem in `view::chunk` (see [this stackoverflow question](https://stackoverflow.com/questions/49210190)).
+  - Replace uses of `ranges::result_of` with `ranges::invoke_result`.
+  - Fix potential buffer overrun of `view::drop` over RandomAccessRanges.
+  - Lots of `view::cartesian_product` fixes (see [ericniebler/stl2\#820](https://github.com/ericniebler/stl2/issues/820), [ericniebler/stl2\#823](https://github.com/ericniebler/stl2/issues/823)).
+  - Work around gcc-8 regression regarding `volatile` `std::initializer_list`s (see [ericniebler/stl2\#826](https://github.com/ericniebler/stl2/issues/826)).
+  - Fix `const`-correctness problem of `view::take`.
+* **0.3.5** February 17, 2018
+  - Rvalues may satisfy `Writable` (see [ericniebler/stl2\#387](https://github.com/ericniebler/stl2/issues/387)).
+  - `view_interface` gets a bounds-checking `at` method.
+  - `chunk_view` works on Input ranges.
+  - Fix bug in `group_by_view`.
+  - Improved concept checks for `partial_sum` numeric algorithm.
+  - Define `ContiguousIterator` concept and `contiguous_iterator_tag` iterator
+    category tag.
+  - Sundry `span` fixes.
+  - `action::insert` avoids interfering with `vector`'s exponentional growth
+    strategy.
+  - Add an experimental `shared` view for views that need container-like scratch
+    space to do their work.
+  - Faster, simpler `reverse_view`.
+  - Rework `ranges::reference_wrapper` to avoid [LWG\#2993](https://wg21.link/lwg2993).
+  - Reworked `any_view`, the type-erased view wrapper.
+  - `equal` algorithm is `constexpr` in C++14.
+  - `stride_view` no longer needs an `atomic` data member.
+  - `const`-correct `drop_view`.
+  - `adjacent_filter_view` supports bidirectional iteration.
+  - Massive `view_adaptor` cleanup to remove the need for a `mutable` data
+    member holding the adapted view.
+  - Fix `counting_iterator` post-increment bug.
+  - `tail_view` of an empty range is an empty range, not undefined behavior.
+  - Various portability fixes for gcc and clang trunk.
 * **0.3.0** June 30, 2017
   - Input views may now be move-only (from @CaseyCarter)
-  - Input `any_view`s are now *much* more efficicient (from @CaseyCarter)
-  - Better support for systems lacking a working `<thread>` header (from @CaseyCarter) 
+  - Input `any_view`s are now *much* more efficient (from @CaseyCarter)
+  - Better support for systems lacking a working `<thread>` header (from @CaseyCarter)
 * **0.2.6** June 21, 2017
   - Experimental coroutines with `ranges::experimental::generator` (from @CaseyCarter)
   - `ranges::optional` now behaves like `std::optional` (from @CaseyCarter)

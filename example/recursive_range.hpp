@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -93,7 +93,7 @@ namespace ranges
         public:
             template<typename Fun,
                 CONCEPT_REQUIRES_(CopyConstructible<Fun>() && Invocable<Fun&>() &&
-                    ConvertibleTo<result_of_t<Fun&()>, any_input_view<Ref>>())>
+                    ConvertibleTo<invoke_result_t<Fun&>, any_input_view<Ref>>())>
             explicit recursive_range_fn(Fun fun)
               : fun_{[=]{return view::concat(invoke(fun), view::empty<value_type>());}}
             {}

@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -111,7 +111,7 @@ namespace ranges
                 using value_t = concepts::Readable::value_t<iterator_t<T>>;
 
                 template<typename T>
-                using reference_t = concepts::Readable::reference_t<iterator_t<T>>;
+                using reference_t = ranges::reference_t<iterator_t<T>>;
 
                 template<typename T>
                 using rvalue_reference_t = concepts::Readable::rvalue_reference_t<iterator_t<T>>;
@@ -163,13 +163,13 @@ namespace ranges
                 using data_reference_t = decltype(*data(std::declval<Rng&>()));
 
                 template<typename Rng>
-                using datum_t = meta::_t<std::remove_reference<data_reference_t<Rng>>>;
+                using element_t = meta::_t<std::remove_reference<data_reference_t<Rng>>>;
 
                 template<typename Rng>
                 auto requires_() -> decltype(
                     concepts::valid_expr(
                         concepts::model_of<Same, InputRange::value_t<Rng>,
-                            meta::_t<std::remove_cv<datum_t<Rng>>>>(),
+                            meta::_t<std::remove_cv<element_t<Rng>>>>(),
                         concepts::model_of<Same, data_reference_t<Rng>,
                             concepts::InputRange::reference_t<Rng>>()
                     ));
@@ -233,6 +233,10 @@ namespace ranges
               : refines<BidirectionalView, RandomAccessRange>
             {};
 
+            struct ContiguousView
+              : refines<RandomAccessView, ContiguousRange>
+            {};
+
             // Additional concepts for checking additional orthogonal properties
             struct BoundedView
               : refines<View, BoundedRange>
@@ -288,6 +292,9 @@ namespace ranges
         template<typename T>
         using RandomAccessView = concepts::models<concepts::RandomAccessView, T>;
 
+        template<typename T>
+        using ContiguousView = concepts::models<concepts::ContiguousView, T>;
+
         // Extra concepts:
         template<typename T>
         using BoundedView = concepts::models<concepts::BoundedView, T>;
@@ -301,6 +308,7 @@ namespace ranges
         using range_concept =
             concepts::most_refined<
                 meta::list<
+                    concepts::ContiguousRange,
                     concepts::RandomAccessRange,
                     concepts::BidirectionalRange,
                     concepts::ForwardRange,
@@ -393,10 +401,17 @@ namespace ranges
             //  - It's derived from view_base
             template<typename T>
             struct view_predicate_
+#ifdef RANGES_WORKAROUND_MSVC_699982
+              : meta::if_<
+                    meta::is_trait<enable_view<T>>,
+                    enable_view<T>,
+                    meta::or_<view_like<T>, DerivedFrom<T, view_base>>>::type
+#else
               : meta::_t<meta::if_<
                     meta::is_trait<enable_view<T>>,
                     enable_view<T>,
                     meta::bool_<view_like<T>() || DerivedFrom<T, view_base>()>>>
+#endif
             {};
 
             template<typename T>

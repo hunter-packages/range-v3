@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -20,7 +20,7 @@ namespace ranges
     inline namespace v3
     {
         /// \ingroup group-utility
-        
+
         template<typename T>
         struct static_const
         {

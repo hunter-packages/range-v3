@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
@@ -44,15 +44,15 @@ namespace ranges
             }
         }
 
-        // Detail namespace, otherwise clang complains that iter_move
-        // and iter_swap conflict with the namespace scope objects of the
-        // same name.
-        namespace _common_iterator_
-        {
-        /// \endcond
+#if RANGES_BROKEN_CPO_LOOKUP
+        namespace _common_iterator_ { template <typename> struct adl_hook {}; }
+#endif
 
         template<typename I, typename S>
         struct common_iterator
+#if RANGES_BROKEN_CPO_LOOKUP
+          : private _common_iterator_::adl_hook<common_iterator<I, S>>
+#endif
         {
         private:
             CONCEPT_ASSERT(Iterator<I>());
@@ -155,18 +155,28 @@ namespace ranges
                 ++ranges::get<0>(data_);
                 return *this;
             }
+#ifdef RANGES_WORKAROUND_MSVC_677925
+            template<typename I2 = I, CONCEPT_REQUIRES_(!ForwardIterator<I2>())>
+            auto operator++(int)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                ((I2 &) ranges::get<0>(data_))++
+            )
+#else // ^^^ workaround ^^^ / vvv no workaround vvv
             CONCEPT_REQUIRES(!ForwardIterator<I>())
             auto operator++(int)
             RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 ranges::get<0>(data_)++
             )
+#endif // RANGES_WORKAROUND_MSVC_677925
             CONCEPT_REQUIRES(ForwardIterator<I>())
             common_iterator operator++(int)
             {
                 return common_iterator(ranges::get<0>(data_)++);
             }
 
+#if !RANGES_BROKEN_CPO_LOOKUP
             CONCEPT_REQUIRES(InputIterator<I>())
             friend RANGES_CXX14_CONSTEXPR
             auto iter_move(const common_iterator& i)
@@ -184,7 +194,31 @@ namespace ranges
                     ranges::get<0>(detail::cidata(x)),
                     ranges::get<0>(detail::cidata(y)))
             )
+#endif
         };
+
+#if RANGES_BROKEN_CPO_LOOKUP
+        namespace _common_iterator_
+        {
+            template<typename I, typename S,
+                CONCEPT_REQUIRES_(InputIterator<I>())>
+            RANGES_CXX14_CONSTEXPR
+            auto iter_move(common_iterator<I, S> const &i)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                ranges::iter_move(ranges::get<0>(detail::cidata(i)))
+            )
+            template<typename I1, typename S1, typename I2, typename S2,
+                CONCEPT_REQUIRES_(IndirectlySwappable<I2, I1>())>
+            auto iter_swap(common_iterator<I1, S1> const &x, common_iterator<I2, S2> const &y)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                ranges::iter_swap(
+                    ranges::get<0>(detail::cidata(x)),
+                    ranges::get<0>(detail::cidata(y)))
+            )
+        }
+#endif
 
         template<typename I1, typename I2, typename S1, typename S2,
             CONCEPT_REQUIRES_(Sentinel<S1, I2>() && Sentinel<S2, I1>() &&
@@ -227,10 +261,6 @@ namespace ranges
                     ranges::get<0>(detail::cidata(x)) - ranges::get<1>(detail::cidata(y)) :
                     ranges::get<0>(detail::cidata(x)) - ranges::get<0>(detail::cidata(y)));
         }
-
-        /// \cond
-        } // namespace _common_iterator_
-        /// \endcond
 
         template<typename I, typename S>
         struct value_type<common_iterator<I, S>>

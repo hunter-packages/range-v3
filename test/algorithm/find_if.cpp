@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -34,7 +34,7 @@ int main()
     using namespace ranges;
 
     int ia[] = {0, 1, 2, 3, 4, 5};
-    constexpr unsigned s = size(ia);
+    constexpr auto s = size(ia);
     input_iterator<const int*> r = find_if(input_iterator<const int*>(ia),
                                            input_iterator<const int*>(ia + s),
                                            [](int i){return i == 3;});

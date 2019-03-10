@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -23,7 +23,7 @@ int main()
     using namespace ranges;
 
     std::vector<int> v = view::ints(0,100);
-    
+
     auto v2 = v | copy | action::stride(10);
     CHECK(size(v2) == 10u);
     ::models<concepts::Same>(v, v2);

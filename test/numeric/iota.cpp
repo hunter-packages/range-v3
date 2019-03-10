@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //  Copyright Gonzalo Brito Gadeschi 2014
 //
 //  Use, modification and distribution is subject to the
@@ -32,7 +32,7 @@ template<class Iter, class Sent = Iter>
 void test()
 {
     int ir[] = {5, 6, 7, 8, 9};
-    constexpr unsigned s = ranges::size(ir);
+    constexpr auto s = ranges::size(ir);
     {
         int ia[] = {1, 2, 3, 4, 5};
         ranges::iota(Iter(ia), Sent(ia + s), 5);

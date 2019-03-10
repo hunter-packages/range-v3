@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -86,16 +86,13 @@ namespace ranges
         namespace concepts
         {
             struct Reservable
-              : refines<Container>
+              : refines<Container, SizedRange>
             {
-                template<typename C>
-                using size_type =
-                    decltype(std::declval<const C&>().size());
-
-                template<typename C, typename S = size_type<C>>
-                auto requires_(C&& c, S&& s = S{}) -> decltype(
+                template<typename C, typename S = concepts::SizedRange::size_t<C>>
+                auto requires_(C &&c, const C &&cc = C{}, S &&s = S{}) -> decltype(
                     concepts::valid_expr(
-                        concepts::model_of<Integral, S>(),
+                        concepts::has_type<S>(cc.capacity()),
+                        concepts::has_type<S>(cc.max_size()),
                         ((void)c.reserve(s), 42)
                     ));
             };
@@ -104,7 +101,7 @@ namespace ranges
               : refines<Reservable(_1), InputIterator(_2)>
             {
                 template<typename C, typename I>
-                auto requires_(C&& c, I&& i) -> decltype(
+                auto requires_(C &&c, I &&i) -> decltype(
                     concepts::valid_expr(
                         ((void)c.assign(i, i), 42)
                     ));
@@ -129,7 +126,7 @@ namespace ranges
             std::true_type is_lvalue_container_like(T &);
 
             template<typename T, CONCEPT_REQUIRES_(Container<T>())>
-            std::true_type is_lvalue_container_like(reference_wrapper<T>);
+            meta::not_<std::is_rvalue_reference<T>> is_lvalue_container_like(reference_wrapper<T>);
 
             template<typename T, CONCEPT_REQUIRES_(Container<T>())>
             std::true_type is_lvalue_container_like(std::reference_wrapper<T>);
@@ -142,9 +139,9 @@ namespace ranges
               : refines<ForwardRange>
             {
                 template<typename T>
-                auto requires_(T&& t) -> decltype(
+                auto requires_(T &&t) -> decltype(
                     concepts::valid_expr(
-                        detail::is_lvalue_container_like(static_cast<T&&>(t))
+                        detail::is_lvalue_container_like(static_cast<T &&>(t))
                     ));
             };
         }

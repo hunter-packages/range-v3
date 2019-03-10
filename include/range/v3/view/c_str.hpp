@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -81,7 +81,8 @@ namespace ranges
                     meta::_t<std::remove_cv<Char>>>
                 operator()(Char *sz) const volatile
                 {
-                    return ranges::view::delimit(sz, Char(0));
+                    using ch_t = meta::_t<std::remove_cv<Char>>;
+                    return ranges::view::delimit(sz, ch_t(0));
                 }
             };
 

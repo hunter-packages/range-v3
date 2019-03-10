@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
@@ -30,9 +30,7 @@ namespace ranges
         struct range_access
         {
             /// \cond
-
         private:
-
             template<typename T>
             static std::false_type single_pass_2_(long);
             template<typename T>
@@ -74,6 +72,9 @@ namespace ranges
                         concepts::model_of<concepts::Constructible, mixin_base_t<T>, T>(),
                         concepts::model_of<concepts::Constructible, mixin_base_t<T>, T const &>()
                     ));
+                    // Axiom: mixin_base_t<T> has a member get(), accessible to derived classes,
+                    //   which perfectly-returns the contained cursor object and does not throw
+                    //   exceptions.
             };
             struct HasCursorNext
             {
@@ -168,53 +169,29 @@ namespace ranges
             };
 
             template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto begin_cursor(Rng & rng, long)
-            RANGES_DECLTYPE_AUTO_RETURN
+            static RANGES_CXX14_CONSTEXPR auto begin_cursor(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 rng.begin_cursor()
             )
             template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto begin_cursor(Rng & rng, int)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                static_cast<Rng const &>(rng).begin_cursor()
-            )
-            template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto end_cursor(Rng & rng, long)
-            RANGES_DECLTYPE_AUTO_RETURN
+            static RANGES_CXX14_CONSTEXPR auto end_cursor(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 rng.end_cursor()
             )
-            template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto end_cursor(Rng & rng, int)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                static_cast<Rng const &>(rng).end_cursor()
-            )
 
             template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto begin_adaptor(Rng & rng, long)
-            RANGES_DECLTYPE_AUTO_RETURN
+            static RANGES_CXX14_CONSTEXPR auto begin_adaptor(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 rng.begin_adaptor()
             )
             template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto begin_adaptor(Rng & rng, int)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                static_cast<Rng const &>(rng).begin_adaptor()
-            )
-            template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto end_adaptor(Rng & rng, long)
-            RANGES_DECLTYPE_AUTO_RETURN
+            static RANGES_CXX14_CONSTEXPR auto end_adaptor(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 rng.end_adaptor()
-            )
-            template<typename Rng>
-            static RANGES_CXX14_CONSTEXPR auto end_adaptor(Rng & rng, int)
-            RANGES_DECLTYPE_AUTO_RETURN
-            (
-                static_cast<Rng const &>(rng).end_adaptor()
             )
 
             template<typename Cur>
@@ -284,12 +261,6 @@ namespace ranges
             template<typename T>
             static typename T::difference_type cursor_difference_2_(int);
 
-            template<typename Cur>
-            struct cursor_difference
-            {
-                using type = decltype(range_access::cursor_difference_2_<Cur>(42));
-            };
-
             template<typename T>
             using cursor_reference_t = decltype(std::declval<T const &>().read());
 
@@ -298,17 +269,32 @@ namespace ranges
             template<typename T>
             static meta::id<typename T::value_type> cursor_value_2_(int);
 
+#ifdef RANGES_WORKAROUND_CWG_1554
+            template<typename Cur>
+            struct cursor_difference
+            {
+                using type = decltype(range_access::cursor_difference_2_<Cur>(42));
+            };
+
             template<typename Cur>
             struct cursor_value
               : decltype(range_access::cursor_value_2_<Cur>(42))
             {};
-
+#endif // RANGES_WORKAROUND_CWG_1554
         public:
+#ifdef RANGES_WORKAROUND_CWG_1554
             template<typename Cur>
-            using cursor_difference_t = typename cursor_difference<Cur>::type;
+            using cursor_difference_t = meta::_t<cursor_difference<Cur>>;
 
             template<typename Cur>
-            using cursor_value_t = typename cursor_value<Cur>::type;
+            using cursor_value_t = meta::_t<cursor_value<Cur>>;
+#else // ^^^ workaround ^^^ / vvv no workaround vvv
+            template<typename Cur>
+            using cursor_difference_t = decltype(range_access::cursor_difference_2_<Cur>(42));
+
+            template<typename Cur>
+            using cursor_value_t = meta::_t<decltype(range_access::cursor_value_2_<Cur>(42))>;
+#endif // RANGES_WORKAROUND_CWG_1554
 
             template<typename Cur>
             static RANGES_CXX14_CONSTEXPR Cur &pos(basic_iterator<Cur> &it) noexcept
@@ -331,25 +317,6 @@ namespace ranges
             {
                 return std::move(it.pos());
             }
-
-        private:
-            template<typename RangeAdaptor>
-            static meta::id<typename RangeAdaptor::base_range_t> base_range_2_();
-            template<typename RangeFacade>
-            static meta::id<typename RangeFacade::view_facade_t> view_facade_2_();
-        public:
-            template<typename RangeAdaptor>
-            struct base_range
-              : decltype(range_access::base_range_2_<RangeAdaptor>())
-            {};
-            template<typename RangeAdaptor>
-            struct base_range<RangeAdaptor const>
-              : std::add_const<meta::_t<base_range<RangeAdaptor>>>
-            {};
-            template<typename RangeFacade>
-            struct view_facade
-              : decltype(range_access::view_facade_2_<RangeFacade>())
-            {};
             /// endcond
         };
         /// @}

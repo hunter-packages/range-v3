@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -132,7 +132,7 @@ namespace ranges
                 CONCEPT_REQUIRES_(is_pipeable<Action>() && Range<Rng &>() &&
                     Invocable<bitwise_or, ref_t<Rng &>, Action &>() &&
                     Same<ref_t<Rng &>,
-                        result_of_t<bitwise_or(ref_t<Rng &> &&, Action &)>>())>
+                        invoke_result_t<bitwise_or, ref_t<Rng &>, Action &>>())>
             Rng & operator|=(Rng & rng, Action && action)
             {
                 ref(rng) | action;

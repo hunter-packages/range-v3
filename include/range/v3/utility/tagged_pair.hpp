@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2015
+//  Copyright Eric Niebler 2013-present
 //  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
@@ -17,6 +17,7 @@
 #include <utility>
 #include <meta/meta.hpp>
 #include <range/v3/range_fwd.hpp>
+#include <range/v3/detail/adl_get.hpp>
 #include <range/v3/utility/concepts.hpp>
 #include <range/v3/utility/swap.hpp>
 
@@ -32,25 +33,10 @@ namespace ranges
 
             template<typename T>
             using tag_elem = meta::back<meta::as_list<T>>;
-
-            namespace adl_get_detail
-            {
-                using std::get;
-
-                template<std::size_t I, typename T>
-                constexpr auto adl_get(T && t)
-                RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
-                (
-                    get<I>((T &&) t)
-                )
-            }
-            using adl_get_detail::adl_get;
         }
-        /// \endcond
 
-        namespace tagged_detail
+        namespace _tagged_
         {
-            /// \cond
             template<typename Base, std::size_t, typename...>
             struct chain
             {
@@ -62,82 +48,145 @@ namespace ranges
                 using type = typename First::template getter<
                     Base, I, meta::_t<chain<Base, I + 1, Rest...>>>;
             };
-            /// \endcond
 
-            template<typename Base, typename...Tags>
-            class tagged
-              : public meta::_t<chain<Base, 0, Tags...>>
-            {
-                CONCEPT_ASSERT(Same<Base, uncvref_t<Base>>());
-                using base_t = meta::_t<chain<Base, 0, Tags...>>;
-
-                template<typename Other>
-                using can_convert =
-                    meta::bool_<!std::is_same<Other, Base>::value &&
-                        std::is_convertible<Other, Base>::value>;
-            public:
-                tagged() = default;
-                using base_t::base_t;
-                CONCEPT_REQUIRES(MoveConstructible<Base>())
-                constexpr tagged(Base && that)
-                    noexcept(std::is_nothrow_move_constructible<Base>::value)
-                  : base_t(detail::move(that))
-                {}
-                CONCEPT_REQUIRES(CopyConstructible<Base>())
-                constexpr tagged(Base const &that)
-                    noexcept(std::is_nothrow_copy_constructible<Base>::value)
-                  : base_t(that)
-                {}
-                template<typename Other, typename = meta::if_<can_convert<Other>>>
-                constexpr tagged(tagged<Other, Tags...> && that)
-                    noexcept(std::is_nothrow_constructible<Base, Other>::value)
-                  : base_t(static_cast<Other &&>(that))
-                {}
-                template<typename Other, typename = meta::if_<can_convert<Other>>>
-                constexpr tagged(tagged<Other, Tags...> const &that)
-                    noexcept(std::is_nothrow_constructible<Base, Other const &>::value)
-                  : base_t(static_cast<Other const &>(that))
-                {}
-                template<typename Other, typename = meta::if_<can_convert<Other>>>
-                RANGES_CXX14_CONSTEXPR tagged &operator=(tagged<Other, Tags...> && that)
-                    noexcept(noexcept(std::declval<Base &>() = static_cast<Other &&>(that)))
-                {
-                    static_cast<Base &>(*this) = static_cast<Other &&>(that);
-                    return *this;
-                }
-                template<typename Other, typename = meta::if_<can_convert<Other>>>
-                RANGES_CXX14_CONSTEXPR tagged &operator=(tagged<Other, Tags...> const &that)
-                    noexcept(noexcept(std::declval<Base &>() = static_cast<Other const &>(that)))
-                {
-                    static_cast<Base &>(*this) = static_cast<Other const &>(that);
-                    return *this;
-                }
-                template<typename U,
-                    typename = meta::if_c<!std::is_same<tagged, detail::decay_t<U>>::value>,
-                    typename = decltype(std::declval<Base &>() = std::declval<U>())>
-                RANGES_CXX14_CONSTEXPR tagged &operator=(U && u)
-                    noexcept(noexcept(std::declval<Base &>() = static_cast<U&&>(u)))
-                {
-                    static_cast<Base &>(*this) = static_cast<U&&>(u);
-                    return *this;
-                }
-                template<typename B = Base>
-                RANGES_CXX14_CONSTEXPR meta::if_c<is_swappable<B>::value>
-                swap(tagged &that)
-                    noexcept(is_nothrow_swappable<B>::value)
-                {
-                    ranges::swap(static_cast<Base &>(*this), static_cast<Base &>(that));
-                }
-                template<typename B = Base>
-                friend RANGES_CXX14_CONSTEXPR meta::if_c<is_swappable<B>::value>
-                swap(tagged &x, tagged &y)
-                    noexcept(is_nothrow_swappable<B>::value)
-                {
-                    x.swap(y);
-                }
-            };
+#if RANGES_BROKEN_CPO_LOOKUP
+            template <typename> struct adl_hook {};
+#endif
         }
-        using tagged_detail::tagged;
+        /// \endcond
+
+        template<typename Base, typename...Tags>
+        class RANGES_EMPTY_BASES tagged
+          : public meta::_t<_tagged_::chain<Base, 0, Tags...>>
+#if RANGES_BROKEN_CPO_LOOKUP
+          , private _tagged_::adl_hook<tagged<Base, Tags...>>
+#endif
+        {
+            CONCEPT_ASSERT(Same<Base, uncvref_t<Base>>());
+            using base_t = meta::_t<_tagged_::chain<Base, 0, Tags...>>;
+
+            template<typename Other>
+            using can_convert =
+                meta::bool_<!std::is_same<Other, Base>::value &&
+                    std::is_convertible<Other, Base>::value>;
+        public:
+            tagged() = default;
+            using base_t::base_t;
+            CONCEPT_REQUIRES(MoveConstructible<Base>())
+            constexpr tagged(Base && that)
+                noexcept(std::is_nothrow_move_constructible<Base>::value)
+              : base_t(detail::move(that))
+            {}
+            CONCEPT_REQUIRES(CopyConstructible<Base>())
+            constexpr tagged(Base const &that)
+                noexcept(std::is_nothrow_copy_constructible<Base>::value)
+              : base_t(that)
+            {}
+            template<typename Other, typename = meta::if_<can_convert<Other>>>
+            constexpr tagged(tagged<Other, Tags...> && that)
+                noexcept(std::is_nothrow_constructible<Base, Other>::value)
+              : base_t(static_cast<Other &&>(that))
+            {}
+            template<typename Other, typename = meta::if_<can_convert<Other>>>
+            constexpr tagged(tagged<Other, Tags...> const &that)
+                noexcept(std::is_nothrow_constructible<Base, Other const &>::value)
+              : base_t(static_cast<Other const &>(that))
+            {}
+            template<typename Other, typename = meta::if_<can_convert<Other>>>
+            RANGES_CXX14_CONSTEXPR tagged &operator=(tagged<Other, Tags...> && that)
+                noexcept(noexcept(std::declval<Base &>() = static_cast<Other &&>(that)))
+            {
+                static_cast<Base &>(*this) = static_cast<Other &&>(that);
+                return *this;
+            }
+            template<typename Other, typename = meta::if_<can_convert<Other>>>
+            RANGES_CXX14_CONSTEXPR tagged &operator=(tagged<Other, Tags...> const &that)
+                noexcept(noexcept(std::declval<Base &>() = static_cast<Other const &>(that)))
+            {
+                static_cast<Base &>(*this) = static_cast<Other const &>(that);
+                return *this;
+            }
+            template<typename U,
+                typename = meta::if_c<!std::is_same<tagged, detail::decay_t<U>>::value>,
+                typename = decltype(std::declval<Base &>() = std::declval<U>())>
+            RANGES_CXX14_CONSTEXPR tagged &operator=(U && u)
+                noexcept(noexcept(std::declval<Base &>() = static_cast<U&&>(u)))
+            {
+                static_cast<Base &>(*this) = static_cast<U&&>(u);
+                return *this;
+            }
+            template<typename B = Base>
+            RANGES_CXX14_CONSTEXPR meta::if_c<is_swappable<B>::value>
+            swap(tagged &that)
+                noexcept(is_nothrow_swappable<B>::value)
+            {
+                ranges::swap(static_cast<Base &>(*this), static_cast<Base &>(that));
+            }
+#if !RANGES_BROKEN_CPO_LOOKUP
+            template<typename B = Base>
+            friend RANGES_CXX14_CONSTEXPR meta::if_c<is_swappable<B>::value>
+            swap(tagged &x, tagged &y)
+                noexcept(is_nothrow_swappable<B>::value)
+            {
+                x.swap(y);
+            }
+#endif
+        };
+
+#if RANGES_BROKEN_CPO_LOOKUP
+        namespace _tagged_
+        {
+            template<typename Base, typename...Tags>
+            RANGES_CXX14_CONSTEXPR meta::if_c<is_swappable<Base>::value>
+            swap(tagged<Base, Tags...> &x, tagged<Base, Tags...> &y)
+                noexcept(is_nothrow_swappable<Base>::value)
+            {
+                x.swap(y);
+            }
+        }
+#endif
+
+        template<std::size_t I, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> &t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<I>(static_cast<Base &>(t))
+        )
+        template<std::size_t I, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> const &t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<I>(static_cast<Base const &>(t))
+        )
+        template<std::size_t I, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> &&t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<I>(static_cast<Base &&>(t))
+        )
+        template<std::size_t I, typename Base, typename... Tags>
+        void get(tagged<Base, Tags...> const &&) = delete;
+
+        template<typename T, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> &t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<T>(static_cast<Base &>(t))
+        )
+        template<typename T, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> const &t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<T>(static_cast<Base const &>(t))
+        )
+        template<typename T, typename Base, typename... Tags>
+        auto get(tagged<Base, Tags...> &&t)
+        RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+        (
+            ranges::detail::adl_get<T>(static_cast<Base &&>(t))
+        )
+        template<typename T, typename Base, typename... Tags>
+        void get(tagged<Base, Tags...> const &&) = delete;
 
         template<typename F, typename S>
         using tagged_pair =
@@ -208,7 +257,6 @@ namespace ranges
     /**/
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_MISMATCHED_TAGS
 
 namespace std

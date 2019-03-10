@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 0.0. (See accompanying
@@ -35,6 +35,7 @@ namespace ranges
         private:
             template<typename I0, typename S0, typename I1, typename S1,
                 typename C, typename P0, typename P1>
+            RANGES_CXX14_CONSTEXPR
             bool nocheck(I0 begin0, S0 end0, I1 begin1, S1 end1, C pred,
                 P0 proj0, P1 proj1) const
             {
@@ -51,6 +52,7 @@ namespace ranges
                     Sentinel<S0, I0>() &&
                     Comparable<I0, I1, C, P0, P1>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             bool operator()(I0 begin0, S0 end0, I1 begin1, C pred = C{},
                 P0 proj0 = P0{}, P1 proj1 = P1{}) const
             {
@@ -66,10 +68,11 @@ namespace ranges
                     Sentinel<S0, I0>() && Sentinel<S1, I1>() &&
                     Comparable<I0, I1, C, P0, P1>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             bool operator()(I0 begin0, S0 end0, I1 begin1, S1 end1, C pred = C{},
                 P0 proj0 = P0{}, P1 proj1 = P1{}) const
             {
-                if(SizedSentinel<S0, I0>() && SizedSentinel<S1, I1>())
+                if RANGES_CONSTEXPR_IF(SizedSentinel<S0, I0>() && SizedSentinel<S1, I1>())
                     if(distance(begin0, end0) != distance(begin1, end1))
                         return false;
                 return this->nocheck(std::move(begin0), std::move(end0), std::move(begin1),
@@ -84,6 +87,7 @@ namespace ranges
                     Range<Rng0>() && Iterator<I1>() &&
                     Comparable<I0, I1, C, P0, P1>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             bool operator()(Rng0 && rng0, I1Ref && begin1, C pred = C{}, P0 proj0 = P0{},
                 P1 proj1 = P1{}) const
             {
@@ -99,10 +103,11 @@ namespace ranges
                     Range<Rng0>() && Range<Rng1>() &&
                     Comparable<I0, I1, C, P0, P1>()
                 )>
+            RANGES_CXX14_CONSTEXPR
             bool operator()(Rng0 && rng0, Rng1 && rng1, C pred = C{}, P0 proj0 = P0{},
                 P1 proj1 = P1{}) const
             {
-                if(SizedRange<Rng0>() && SizedRange<Rng1>())
+                if RANGES_CONSTEXPR_IF (SizedRange<Rng0>() && SizedRange<Rng1>())
                     if(distance(rng0) != distance(rng1))
                         return false;
                 return this->nocheck(begin(rng0), end(rng0), begin(rng1), end(rng1),

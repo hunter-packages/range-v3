@@ -1,97 +1,35 @@
-cmake_minimum_required(VERSION 3.0)
+# Copyright Eric Niebler 2014
+# Copyright Gonzalo Brito Gadeschi 2014, 2017
+# Copyright Louis Dionne 2015
+# Copyright Casey Carter 2016
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+cmake_minimum_required(VERSION 3.6)
+get_directory_property(is_subproject PARENT_DIRECTORY)
 
 project(range-v3 CXX)
 
-find_package(Doxygen)
-find_package(Git)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compilation data-base
 
-include_directories(include)
+add_library(meta INTERFACE)
+target_include_directories(meta INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>)
+target_include_directories(meta SYSTEM INTERFACE $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
 
-enable_testing()
-include(CTest)
-include(CheckCXXCompilerFlag)
-include(CMakeDependentOption)
+add_library(range-v3 INTERFACE)
+target_include_directories(range-v3 INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>)
+target_include_directories(range-v3 SYSTEM INTERFACE $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
+target_link_libraries(range-v3 INTERFACE meta)
 
-option(RANGES_MODULES "Enables Clang Modules." OFF)
-option(BUILD_TESTS "Build tests" ON)
-option(BUILD_DOCS "Build docs" ON)
-
-find_program(MEMORYCHECK_COMMAND valgrind)
-if(MEMORYCHECK_COMMAND)
-  message("Valgrind: ${MEMORYCHECK_COMMAND}")
-  set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full")
-else()
-  message("Valgrind not found")
-endif()
-
-macro(range_v3_append_flag testname flag)
-  check_cxx_compiler_flag(${flag} ${testname})
-  if (${testname})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flag}")
-  endif()
-endmacro()
-
-# Select C++ standard to be used for compiling the tests,
-# for example: 11, 14, 17, 1z, 1y, ...
-#
-if(NOT RANGES_CXX_STD)
-  # Defaults to C++11 if not set:
-  set(RANGES_CXX_STD 11)
-endif()
-
-if("x${CMAKE_CXX_COMPILER_ID}" MATCHES "x.*Clang")
-  # Clang/C2 will blow up with various parts of the standard library
-  # if compiling with -std less than c++14.
-  if(("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") AND (RANGES_CXX_STD EQUAL 11))
-    set(CMAKE_CXX_STANDARD 14)
-    set(RANGES_CXX_STD 14)
-  endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weverything -Werror -pedantic-errors")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-weak-vtables -Wno-padded")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-prototypes -Wno-missing-variable-declarations")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-shadow -Wno-old-style-cast")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-documentation -Wno-documentation-unknown-command")
-  if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-global-constructors -Wno-exit-time-destructors")
-  endif()
-  if (RANGES_MODULES)
-    if(NOT RANGES_LIBCXX_MODULE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules -fmodule-map-file=${PROJECT_SOURCE_DIR}/include/module.modulemap -fmodules-cache-path=${PROJECT_BINARY_DIR}/module.cache")
-    else()
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fmodules -fmodule-map-file=${PROJECT_SOURCE_DIR}/include/module.modulemap -fmodules-cache-path=${PROJECT_BINARY_DIR}/module.cache -fno-implicit-module-maps -fmodule-map-file=${RANGES_LIBCXX_MODULE}")
-    endif()
-  endif()
-  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
-  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -DNDEBUG")
-elseif(CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++${RANGES_CXX_STD} -ftemplate-backtrace-limit=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Werror -pedantic-errors")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-strict-overflow")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
-    endif()
-  elseif((CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0") OR (CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"))
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-noexcept-type")
-  endif()
-  set(CMAKE_CXX_FLAGS_DEBUG "-O0 -fno-inline -g3 -fstack-protector-all")
-  set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -g0 -DNDEBUG")
-# else()
-#   message(FATAL_ERROR "Unknown compiler. Good luck!")
-endif()
-
-range_v3_append_flag(RANGE_V3_HAS_MARCH_NATIVE "-march=native")
-range_v3_append_flag(RANGE_V3_HAS_MTUNE_NATIVE "-mtune=native")
+include(CTest) # invokes enable_testing() and defines BUILD_TESTING variable, defaulting to ON
+include(TestHeaders)
+include(ranges_options)
+include(ranges_env)
+include(ranges_flags)
 
 # Test for <thread>
 try_compile(RANGE_V3_TRY_THREAD ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/thread_test_code.cpp)
-if(NOT RANGE_V3_TRY_THREAD)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRANGES_CXX_THREAD=0")
-endif()
 
 # Test for coroutine TS support
 include(CheckCXXSourceCompiles)
@@ -99,32 +37,43 @@ include(CheckCXXSourceCompiles)
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/cmake/coro_test_code.cpp" RANGE_V3_CORO_TEST_CODE)
 set(CMAKE_REQUIRED_FLAGS "-fcoroutines-ts")
 check_cxx_source_compiles("${RANGE_V3_CORO_TEST_CODE}" RANGE_V3_HAS_FCOROUTINES_TS)
+unset(CMAKE_REQUIRED_FLAGS)
 
-if (RANGE_V3_HAS_FCOROUTINES_TS)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcoroutines-ts")
+if(RANGE_V3_DOCS)
+  add_subdirectory(doc)
+endif()
+
+if(RANGE_V3_TESTS)
+  add_subdirectory(test)
+endif()
+
+if(RANGE_V3_EXAMPLES)
+  add_subdirectory(example)
+endif()
+
+if(RANGE_V3_PERF)
+  add_subdirectory(perf)
 endif()
 
 # Test all headers
 file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS
-                  RELATIVE "${CMAKE_SOURCE_DIR}/include"
-                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
+                  RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include"
+                  "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 
 # Add header files as sources to fix MSVS 2017 not finding source during debugging
 file(GLOB_RECURSE RANGE_V3_PUBLIC_HEADERS_ABSOLUTE
-                  "${CMAKE_SOURCE_DIR}/include/*.hpp")
+                  "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 
-if(BUILD_TESTS)
-  include(TestHeaders)
-  if(RANGE_V3_NO_HEADER_CHECK)
-    add_custom_target(headers SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
-  else()
-    add_custom_target(headers ALL SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
-  endif()
-  generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
+include(TestHeaders)
+if(RANGE_V3_HEADER_CHECKS)
+  add_custom_target(headers ALL SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
+else()
+  add_custom_target(headers SOURCES ${RANGE_V3_PUBLIC_HEADERS_ABSOLUTE})
 endif()
+generate_standalone_header_tests(EXCLUDE_FROM_ALL MASTER_TARGET headers HEADERS ${RANGE_V3_PUBLIC_HEADERS})
 
 # Grab the range-v3 version numbers:
-include(${CMAKE_SOURCE_DIR}/Version.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/Version.cmake)
 set(RANGE_V3_VERSION ${RANGE_V3_MAJOR}.${RANGE_V3_MINOR}.${RANGE_V3_PATCHLEVEL})
 
 # Try to build a new version.hpp
@@ -133,9 +82,9 @@ file(STRINGS ${CMAKE_CURRENT_BINARY_DIR}/include/range/v3/version.hpp RANGE_V3_O
 file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3/version.hpp RANGE_V3_NEW_VERSION_HPP)
 
 # If the new version.hpp is materially different from the one in the source
-# directory, update it, amend the most recent commit, and tag the commit.
+# directory, update it, commit, and tag.
 if(NOT RANGE_V3_NEW_VERSION_HPP STREQUAL RANGE_V3_OLD_VERSION_HPP)
-  # Check that Version.cmake is the only changed file:
+  # Check that README.md and Version.cmake are the only changed file:
   execute_process(
     COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" status --porcelain -uno
     OUTPUT_VARIABLE RANGE_V3_GIT_STATUS
@@ -149,14 +98,11 @@ if(NOT RANGE_V3_NEW_VERSION_HPP STREQUAL RANGE_V3_OLD_VERSION_HPP)
     COPY ${CMAKE_CURRENT_BINARY_DIR}/include/range/v3/version.hpp
     DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include/range/v3
   )
-  # Update the conanfiles, too
-  configure_file(conanfile.py.in ${CMAKE_CURRENT_SOURCE_DIR}/conanfile.py @ONLY)
-  configure_file(test_package/conanfile.py.in ${CMAKE_CURRENT_SOURCE_DIR}/test_package/conanfile.py @ONLY)
   execute_process(
     COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" add -u
   )
   execute_process(
-    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" commit --amend --no-edit
+    COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" commit -m "${RANGE_V3_VERSION}"
   )
   execute_process(
     COMMAND ${GIT_EXECUTABLE} -C "${CMAKE_CURRENT_SOURCE_DIR}" tag -f -a "${RANGE_V3_VERSION}" -m "${RANGE_V3_VERSION}"
@@ -165,82 +111,27 @@ if(NOT RANGE_V3_NEW_VERSION_HPP STREQUAL RANGE_V3_OLD_VERSION_HPP)
   if (NOT "x${CONAN_EXECUTABLE}" STREQUAL "xCONAN_EXECUTABLE-NOTFOUND")
     message("Exporting conanfile for new version")
     execute_process(
-      COMMAND ${CONAN_EXECUTABLE} export ericniebler/stable
+      COMMAND ${CONAN_EXECUTABLE} create . range-v3/${RANGE_V3_VERSION}@ericniebler/stable
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     )
   endif()
   message("Version updated to ${RANGE_V3_VERSION}. Don't forget to:")
   message("  git push origin <feature-branch>")
   message("and (after that is merged to master) then:")
-  message("  conan export ericniebler")
-  message("  conan test_package")
+  message("  conan create ${CMAKE_CURRENT_SOURCE_DIR} range-v3/${RANGE_V3_VERSION}@ericniebler/stable")
   message("  conan upload --all range-v3/${RANGE_V3_VERSION}@ericniebler/stable")
 endif()
 
-if(BUILD_DOCS)
-  add_subdirectory(doc)
-endif()
-if(BUILD_TESTS)
-  add_subdirectory(test)
-  add_subdirectory(example)
-  add_subdirectory(perf)
-endif()
-
-add_library(${PROJECT_NAME} INTERFACE)
-
-# Installation (https://github.com/forexample/package-example) {
-
-set(config_install_dir "lib/cmake/${PROJECT_NAME}")
-set(include_install_dir "include")
-
-set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
-
-set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
-set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
-set(targets_export_name "${PROJECT_NAME}Targets")
-set(namespace "${PROJECT_NAME}::")
-
 include(CMakePackageConfigHelpers)
-
-# Use:
-#   * PROJECT_VERSION
 write_basic_package_version_file(
-    "${version_config}" 
-    VERSION ${RANGE_V3_VERSION}
-    COMPATIBILITY SameMajorVersion
+  ${CMAKE_CURRENT_BINARY_DIR}/range-v3-config-version.cmake
+  VERSION ${RANGE_V3_VERSION}
+  COMPATIBILITY ExactVersion
 )
 
-# Use:
-#   * targets_export_name
-#   * PROJECT_NAME
-configure_package_config_file(
-    "cmake/Config.cmake.in"
-    "${project_config}"
-    INSTALL_DESTINATION "${config_install_dir}"
-)
-
-install(
-    TARGETS ${PROJECT_NAME}
-    EXPORT "${targets_export_name}"
-    LIBRARY DESTINATION "lib"
-    ARCHIVE DESTINATION "lib"
-    RUNTIME DESTINATION "bin"
-    INCLUDES DESTINATION "${include_install_dir}"
-)
-
-
-install(DIRECTORY include/ DESTINATION "${include_install_dir}"
-        FILES_MATCHING PATTERN "*.hpp")
-
-install(
-    FILES "${project_config}" "${version_config}"
-    DESTINATION "${config_install_dir}"
-)
-
-install(
-    EXPORT "${targets_export_name}"
-    NAMESPACE "${namespace}"
-    DESTINATION "${config_install_dir}"
-)
-
-# }
+install(TARGETS meta range-v3 EXPORT range-v3-targets DESTINATION lib)
+install(EXPORT range-v3-targets FILE range-v3-config.cmake DESTINATION lib/cmake/range-v3)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/range-v3-config-version.cmake
+  DESTINATION lib/cmake/range-v3)
+install(DIRECTORY include/ DESTINATION include FILES_MATCHING PATTERN "*.hpp")

@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -32,8 +32,8 @@ namespace ranges
         struct generate_fn
         {
             template<typename O, typename S, typename F,
-                CONCEPT_REQUIRES_(Invocable<F&>() &&
-                    OutputIterator<O, result_of_t<F&()>>() &&
+                CONCEPT_REQUIRES_(Invocable<F &>() &&
+                    OutputIterator<O, invoke_result_t<F &>>() &&
                     Sentinel<S, O>())>
             tagged_pair<tag::out(O), tag::fun(F)>
             operator()(O begin, S end, F fun) const
@@ -45,8 +45,8 @@ namespace ranges
 
             template<typename Rng, typename F,
                 typename O = iterator_t<Rng>,
-                CONCEPT_REQUIRES_(Invocable<F&>() &&
-                    OutputRange<Rng, result_of_t<F&()>>())>
+                CONCEPT_REQUIRES_(Invocable<F &>() &&
+                    OutputRange<Rng, invoke_result_t<F &>>())>
             tagged_pair<tag::out(safe_iterator_t<Rng>), tag::fun(F)>
             operator()(Rng &&rng, F fun) const
             {

@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -9,13 +9,14 @@
 //
 // Project home: https://github.com/ericniebler/range-v3
 
+#include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
-#include <memory>
 #include <range/v3/core.hpp>
 #include <range/v3/algorithm/copy.hpp>
 #include <range/v3/algorithm/move.hpp>
+#include <range/v3/utility/copy.hpp>
 #include <range/v3/utility/iterator.hpp>
 #include <range/v3/view/bounded.hpp>
 #include <range/v3/view/for_each.hpp>
@@ -26,7 +27,6 @@
 #include <range/v3/view/take_while.hpp>
 #include <range/v3/view/zip.hpp>
 #include <range/v3/view/zip_with.hpp>
-#include <range/v3/utility/copy.hpp>
 #include "../simple_test.hpp"
 #include "../test_utils.hpp"
 

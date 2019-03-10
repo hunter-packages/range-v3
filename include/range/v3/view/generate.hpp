@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -40,9 +40,9 @@ namespace ranges
         {
         private:
             friend range_access;
-            using result_t = result_of_t<G&()>;
+            using result_t = invoke_result_t<G &>;
             movesemiregular_t<G> gen_;
-            movesemiregular_t<result_t> val_;
+            detail::non_propagating_cache<result_t> val_;
             struct cursor
             {
             private:
@@ -52,19 +52,18 @@ namespace ranges
                 explicit cursor(generate_view &view)
                   : view_(&view)
                 {}
-                result_t read() const
+                result_t &&read() const
                 {
-                    return view_->val_;
+                    if (!view_->val_)
+                        view_->val_ = view_->gen_();
+                    return static_cast<result_t &&>(
+                        static_cast<result_t &>(*view_->val_));
                 }
                 void next()
                 {
-                    view_->next();
+                    view_->val_.reset();
                 }
             };
-            void next()
-            {
-                val_ = invoke(gen_);
-            }
             cursor begin_cursor()
             {
                 return cursor{*this};
@@ -76,11 +75,11 @@ namespace ranges
         public:
             generate_view() = default;
             explicit generate_view(G g)
-              : gen_(std::move(g)), val_(gen_())
+              : gen_(std::move(g))
             {}
-            result_t & cached()
+            result_t &cached()
             {
-                return val_;
+                return *val_;
             }
         };
 
@@ -92,9 +91,9 @@ namespace ranges
                 using Concept = meta::and_<
                     Invocable<G&>,
                     MoveConstructible<G>,
-                    std::is_object<detail::decay_t<result_of_t<G&()>>>,
-                    Constructible<detail::decay_t<result_of_t<G&()>>, result_of_t<G&()>>,
-                    Assignable<detail::decay_t<result_of_t<G&()>>&, result_of_t<G&()>>>;
+                    std::is_object<detail::decay_t<invoke_result_t<G &>>>,
+                    Constructible<detail::decay_t<invoke_result_t<G &>>, invoke_result_t<G &>>,
+                    Assignable<detail::decay_t<invoke_result_t<G &>>&, invoke_result_t<G &>>>;
 
                 template<typename G,
                     CONCEPT_REQUIRES_(Concept<G>())>
@@ -116,7 +115,7 @@ namespace ranges
                         "The function object G must be callable with no arguments.");
                     CONCEPT_ASSERT_MSG(MoveConstructible<G>(),
                         "The function object G must be MoveConstructible.");
-                    using T = result_of_t<G&()>;
+                    using T = invoke_result_t<G &>;
                     using D = detail::decay_t<T>;
                     CONCEPT_ASSERT_MSG(std::is_object<D>(),
                         "The return type of the function object G must decay to an object type.");

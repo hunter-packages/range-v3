@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -75,7 +75,8 @@ namespace ranges
                 static auto from_range(T && t) ->
                     decltype(all_fn::from_container(t, SIC(), SIRC()))
                 {
-                    static_assert(std::is_lvalue_reference<T>::value, "Cannot get a view of a temporary container");
+                    static_assert(std::is_lvalue_reference<T>::value,
+                        "Cannot get a view of a temporary container");
                     return all_fn::from_container(t, SIC(), SIRC());
                 }
 
@@ -106,6 +107,32 @@ namespace ranges
             using all_t =
                 meta::_t<std::decay<decltype(all(std::declval<Rng>()))>>;
         }
+
+        template<typename Rng>
+        struct identity_adaptor
+          : Rng
+        {
+            CONCEPT_ASSERT(View<Rng>());
+
+            identity_adaptor() = default;
+            constexpr explicit identity_adaptor(Rng const &rng)
+              : Rng(rng)
+            {}
+            constexpr explicit identity_adaptor(Rng &&rng)
+              : Rng(detail::move(rng))
+            {}
+
+            using Rng::Rng;
+
+            RANGES_CXX14_CONSTEXPR Rng &base() noexcept
+            {
+                return *this;
+            }
+            constexpr Rng const &base() const noexcept
+            {
+                return *this;
+            }
+        };
         /// @}
     }
 }

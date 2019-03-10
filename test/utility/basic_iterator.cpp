@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -140,20 +140,20 @@ namespace test_weak_output
     template<typename I>
     struct cursor
     {
-    private:
-        friend ranges::range_access;
-        I it_;
-        void write(ranges::value_type_t<I> v) const { *it_ = v; }
-        void next() { ++it_; }
-    public:
         struct mixin : ranges::basic_mixin<cursor>
         {
             mixin() = default;
             using ranges::basic_mixin<cursor>::basic_mixin;
-            mixin(I i) : mixin(cursor{i}) {}
+            explicit mixin(I i) : mixin(cursor{i}) {}
         };
+
         cursor() = default;
         explicit cursor(I i) : it_(i) {}
+
+        void write(ranges::value_type_t<I> v) const { *it_ = v; }
+        void next() { ++it_; }
+    private:
+        I it_;
     };
 
     CONCEPT_ASSERT(ranges::detail::OutputCursor<cursor<char *>, char>());
@@ -365,6 +365,8 @@ namespace test_forward_sized
     }
 }
 
+RANGES_DIAGNOSTIC_IGNORE_UNNEEDED_MEMBER
+
 void test_box()
 {
     struct A : ranges::box<int> {};
@@ -380,6 +382,19 @@ void test_box()
     CHECK(sizeof(C) == sizeof(int));
     C c1, c2;
     CHECK((&c1.get() != &c2.get()));
+
+    {
+        // empty but not trivial cursor that defines value_type:
+        struct cursor {
+            using value_type = int;
+            cursor() {}
+            int read() const { return 42; }
+            void next() {}
+        };
+        CONCEPT_ASSERT(ranges::detail::box_compression<cursor>() ==
+            ranges::detail::box_compress::ebo);
+        CONCEPT_ASSERT(ranges::Same<int, ranges::basic_iterator<cursor>::value_type>());
+    }
 }
 
 int main()

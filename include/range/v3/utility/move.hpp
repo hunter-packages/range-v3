@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -63,8 +63,12 @@ namespace ranges
         /// \cond
         namespace adl_move_detail
         {
+#if RANGES_BROKEN_CPO_LOOKUP
+            void iter_move(); // unqualified name lookup block
+#endif
+
             template<typename T,
-                typename = decltype(iter_move(std::declval<T &&>()))>
+                typename = decltype(iter_move(std::declval<T>()))>
             std::true_type try_adl_iter_move_(int);
 
             template<typename T>
@@ -89,7 +93,7 @@ namespace ranges
 
                 template<typename I,
                     typename = meta::if_c<!is_adl_indirectly_movable_<I &>::value>,
-                    typename R = decltype(*std::declval<I &>())>
+                    typename R = reference_t<I>>
                 auto operator()(I &&i) const
                 RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
                 (
@@ -99,7 +103,10 @@ namespace ranges
         }
         /// \endcond
 
-        RANGES_INLINE_VARIABLE(adl_move_detail::iter_move_fn, iter_move)
+        inline namespace CPOs
+        {
+            RANGES_INLINE_VARIABLE(adl_move_detail::iter_move_fn, iter_move)
+        }
 
         /// \cond
         struct indirect_move_fn
@@ -127,10 +134,10 @@ namespace ranges
                         meta::_t<value_type<I>> &,
                         decltype(iter_move(std::declval<I &>()))>::value &&
                     std::is_assignable<
-                        decltype(*std::declval<O &>()),
+                        reference_t<O>,
                         meta::_t<value_type<I>>>::value &&
                     std::is_assignable<
-                        decltype(*std::declval<O &>()),
+                        reference_t<O>,
                         decltype(iter_move(std::declval<I &>()))>::value>;
 
             template<typename I, typename O>
@@ -144,10 +151,10 @@ namespace ranges
                         meta::_t<value_type<I>> &,
                         decltype(iter_move(std::declval<I &>()))>::value &&
                     std::is_nothrow_assignable<
-                        decltype(*std::declval<O &>()),
+                        reference_t<O>,
                         meta::_t<value_type<I>>>::value &&
                     std::is_nothrow_assignable<
-                        decltype(*std::declval<O &>()),
+                        reference_t<O>,
                         decltype(iter_move(std::declval<I &>()))>::value>;
         }
         /// \endcond

@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2015
+//  Copyright Eric Niebler 2015-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -34,7 +34,7 @@ int main()
             get<0>(v);
             CHECK(false);
         }
-        catch(bad_variant_access)
+        catch(const bad_variant_access&)
         {}
         catch(...)
         {
@@ -66,7 +66,7 @@ int main()
             get<0>(v);
             CHECK(false);
         }
-        catch(bad_variant_access)
+        catch(const bad_variant_access&)
         {}
         catch(...)
         {

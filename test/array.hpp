@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -280,7 +280,6 @@ namespace test {
 }  // namespace test
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_MISMATCHED_TAGS
 
 namespace std

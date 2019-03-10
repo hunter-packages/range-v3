@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -35,53 +35,35 @@ namespace ranges
         /// @{
         namespace adl_advance_detail
         {
-            using std::advance;
+#ifdef RANGES_WORKAROUND_MSVC_620035
+            void advance();
+#endif
 
-            template<typename I>
-            RANGES_CXX14_CONSTEXPR
-            void advance_impl(I &i, difference_type_t<I> n, concepts::InputIterator *)
-            {
-                RANGES_EXPECT(n >= 0);
-                for(; n > 0; --n)
-                    ++i;
-            }
-            template<typename I>
-            RANGES_CXX14_CONSTEXPR
-            void advance_impl(I &i, difference_type_t<I> n, concepts::BidirectionalIterator *)
-            {
-                if(n > 0)
-                    for(; n > 0; --n)
-                        ++i;
-                else
-                    for(; n < 0; ++n)
-                        --i;
-            }
-            template<typename I>
-            RANGES_CXX14_CONSTEXPR
-            void advance_impl(I &i, difference_type_t<I> n, concepts::RandomAccessIterator *)
-            {
-                i += n;
-            }
-            // Handle range-v3 iterators specially, since many range-v3 iterators will want to
-            // decrement an iterator that is bidirectional from the perspective of range-v3,
-            // but only input from the perspective of std::advance.
-            template<typename Cur>
-            RANGES_CXX14_CONSTEXPR
-            void advance(basic_iterator<Cur> &i, difference_type_t<basic_iterator<Cur>> n)
-            {
-                adl_advance_detail::advance_impl(i, n, iterator_concept<basic_iterator<Cur>>{});
-            }
-            // Hijack std::advance for raw pointers, since std::advance is not constexpr
-            template<typename T>
-            RANGES_CXX14_CONSTEXPR
-            void advance(T*& i, difference_type_t<T*> n)
-            {
-                adl_advance_detail::advance_impl(i, n, iterator_concept<T*>{});
-            }
+            template<typename I, typename D>
+            void advance(I&, D) = delete;
 
             struct advance_fn
             {
             private:
+                template<typename I>
+                RANGES_CXX14_CONSTEXPR
+                static void n_impl_(I &i, difference_type_t<I> n, concepts::InputIterator *);
+                template<typename I>
+                RANGES_CXX14_CONSTEXPR
+                static void n_impl_(I &i, difference_type_t<I> n, concepts::BidirectionalIterator *);
+                template<typename I>
+                RANGES_CXX14_CONSTEXPR
+                static void n_impl_(I &i, difference_type_t<I> n, concepts::RandomAccessIterator *);
+                // Is there an advance that is find-able by ADL and is preferred
+                // by partial ordering to the poison-pill overload?
+                template<typename I>
+                RANGES_CXX14_CONSTEXPR
+                static auto n_(I &i, difference_type_t<I> n, int) ->
+                    decltype(static_cast<void>(advance(i, n)));
+                // No advance overload found by ADL, use the default implementation:
+                template<typename I>
+                RANGES_CXX14_CONSTEXPR
+                static void n_(I &i, difference_type_t<I> n, long);
                 template<typename I, typename S>
                 RANGES_CXX14_CONSTEXPR
                 static void to_(I &i, S s, concepts::Sentinel*);
@@ -107,9 +89,7 @@ namespace ranges
                 RANGES_CXX14_CONSTEXPR
                 void operator()(I &i, difference_type_t<I> n) const
                 {
-                    // Use ADL here to give custom iterator types (like counted_iterator)
-                    // a chance to optimize it (see utility/counted_iterator.hpp)
-                    advance(i, n);
+                    advance_fn::n_(i, n, 0);
                 }
                 // Advance to a certain position:
                 template<typename I, typename S,
@@ -140,10 +120,55 @@ namespace ranges
 
         /// \ingroup group-utility
         /// \sa `advance_fn`
-        RANGES_INLINE_VARIABLE(adl_advance_detail::advance_fn, advance)
+        /// Not to spec: advance is an ADL customization point
+        inline namespace CPOs
+        {
+            RANGES_INLINE_VARIABLE(adl_advance_detail::advance_fn, advance)
+        }
 
         namespace adl_advance_detail
         {
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            void advance_fn::n_impl_(I &i, difference_type_t<I> n, concepts::InputIterator *)
+            {
+                RANGES_EXPECT(n >= 0);
+                for(; n > 0; --n)
+                    ++i;
+            }
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            void advance_fn::n_impl_(I &i, difference_type_t<I> n, concepts::BidirectionalIterator *)
+            {
+                if(n > 0)
+                    for(; n > 0; --n)
+                        ++i;
+                else
+                    for(; n < 0; ++n)
+                        --i;
+            }
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            void advance_fn::n_impl_(I &i, difference_type_t<I> n, concepts::RandomAccessIterator *)
+            {
+                i += n;
+            }
+            // Is there an advance that is find-able by ADL and is preferred
+            // by partial ordering to the poison-pill overload?
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            auto advance_fn::n_(I &i, difference_type_t<I> n, int) ->
+                decltype(static_cast<void>(advance(i, n)))
+            {
+                advance(i, n);
+            }
+            // No advance overload found by ADL, use the default implementation:
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            void advance_fn::n_(I &i, difference_type_t<I> n, long)
+            {
+                advance_fn::n_impl_(i, n, iterator_concept<I>{});
+            }
             template<typename I, typename S>
             RANGES_CXX14_CONSTEXPR
             void advance_fn::to_(I &i, S s, concepts::Sentinel*)
@@ -244,7 +269,14 @@ namespace ranges
             template<typename I,
                 CONCEPT_REQUIRES_(BidirectionalIterator<I>())>
             RANGES_CXX14_CONSTEXPR
-            I operator()(I it, difference_type_t<I> n = 1) const
+            I operator()(I it) const
+            {
+                return --it;
+            }
+            template<typename I,
+                CONCEPT_REQUIRES_(BidirectionalIterator<I>())>
+            RANGES_CXX14_CONSTEXPR
+            I operator()(I it, difference_type_t<I> n) const
             {
                 advance(it, -n);
                 return it;
@@ -675,9 +707,7 @@ namespace ranges
                 RANGES_CXX14_CONSTEXPR
                 I arrow() const
                 {
-                    I tmp(it_);
-                    --tmp;
-                    return tmp;
+                    return ranges::prev(it_);
                 }
                 RANGES_CXX14_CONSTEXPR
                 I base() const
@@ -716,7 +746,7 @@ namespace ranges
                 auto move() const
                 RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
                 (
-                    iter_move(it_)
+                    iter_move(ranges::prev(it_))
                 )
             public:
                 reverse_cursor() = default;
@@ -730,12 +760,17 @@ namespace ranges
         }  // namespace detail
         /// \endcond
 
-        template<typename I>
-        RANGES_CXX14_CONSTEXPR
-        reverse_iterator<I> make_reverse_iterator(I i)
+        struct make_reverse_iterator_fn
         {
-            return reverse_iterator<I>(i);
-        }
+            template<typename I>
+            RANGES_CXX14_CONSTEXPR
+            reverse_iterator<I> operator()(I i) const
+            {
+                return reverse_iterator<I>(i);
+            }
+        };
+
+        RANGES_INLINE_VARIABLE(make_reverse_iterator_fn, make_reverse_iterator)
 
         template<typename I>
         struct move_iterator
@@ -932,19 +967,19 @@ namespace ranges
         }
         template<typename I, typename S,
             CONCEPT_REQUIRES_(Sentinel<S, I>())>
-        bool operator==(move_sentinel<S> const &s, move_iterator<S> const &i)
+        bool operator==(move_sentinel<S> const &s, move_iterator<I> const &i)
         {
             return s.base() == i.base();
         }
         template<typename I, typename S,
             CONCEPT_REQUIRES_(Sentinel<S, I>())>
-        bool operator!=(move_iterator<S> const &i, move_sentinel<S> const &s)
+        bool operator!=(move_iterator<I> const &i, move_sentinel<S> const &s)
         {
             return i.base() != s.base();
         }
         template<typename I, typename S,
             CONCEPT_REQUIRES_(Sentinel<S, I>())>
-        bool operator!=(move_sentinel<S> const &s, move_iterator<S> const &i)
+        bool operator!=(move_sentinel<S> const &s, move_iterator<I> const &i)
         {
             return s.base() != i.base();
         }

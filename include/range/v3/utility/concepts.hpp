@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -18,12 +18,12 @@
 #define RANGES_V3_UTILITY_CONCEPTS_HPP
 
 #include <initializer_list>
-#include <utility>
 #include <type_traits>
-#include <meta/meta.hpp>
-#include <range/v3/utility/swap.hpp>
+#include <utility>
+#include <range/v3/range_fwd.hpp>
 #include <range/v3/utility/common_type.hpp>
 #include <range/v3/utility/nullptr_v.hpp>
+#include <range/v3/utility/swap.hpp>
 
 namespace ranges
 {
@@ -100,15 +100,21 @@ namespace ranges
             template<typename Concept>
             using base_concepts_of_t = meta::_t<base_concepts_of<Concept>>;
 
-            template<typename T>
-            T gcc_bugs_bugs_bugs(T);
-
             template<typename...Ts>
             auto models_(any) ->
                 std::false_type;
 
+#if (defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 5 && __GNUC_MINOR__ < 5) || \
+    defined(RANGES_WORKAROUND_MSVC_701425)
+            template<typename T>
+            T gcc_bugs_bugs_bugs(T);
+
             template<typename...Ts, typename Concept,
                 typename = decltype(gcc_bugs_bugs_bugs(&Concept::template requires_<Ts...>))>
+#else
+            template<typename...Ts, typename Concept,
+                typename = decltype(&Concept::template requires_<Ts...>)>
+#endif
             auto models_(Concept *) ->
                 meta::apply<
                     meta::quote<meta::lazy::strict_and>,
@@ -219,6 +225,15 @@ namespace ranges
             ////////////////////////////////////////////////////////////////////////////////////////////
             // Core language concepts
             ////////////////////////////////////////////////////////////////////////////////////////////
+
+            struct Satisfies
+            {
+                template<typename T, typename Trait, typename ...Ts>
+                auto requires_() -> decltype(
+                    concepts::valid_expr(
+                        concepts::is_true(meta::invoke<Trait, T, Ts...>{})
+                    ));
+            };
 
             struct Same
             {
@@ -575,6 +590,9 @@ namespace ranges
             {};
         }
 
+        template<typename T, template<typename...> class Trait, typename ...Ts>
+        using Satisfies = concepts::models<concepts::Satisfies, T, meta::quote<Trait>, Ts...>;
+
         template<typename ...Ts>
         using Same = concepts::Same::same_t<Ts...>; // This handles void better than using the Same concept
 
@@ -661,21 +679,14 @@ namespace ranges
 
 /// \addtogroup group-concepts
 /// @{
-#define CONCEPT_REQUIRES_(...)                                                      \
-    int CONCEPT_PP_CAT(_concept_requires_, __LINE__) = 42,                          \
-    typename std::enable_if<                                                        \
-        (CONCEPT_PP_CAT(_concept_requires_, __LINE__) == 43) || (__VA_ARGS__),      \
-        int                                                                         \
-    >::type = 0                                                                     \
+#define CONCEPT_REQUIRES_(...)                                         \
+    bool CONCEPT_PP_CAT(_concept_requires_, __LINE__) = false,         \
+    typename std::enable_if<                                           \
+        CONCEPT_PP_CAT(_concept_requires_, __LINE__) || (__VA_ARGS__)  \
+    >::type* = nullptr                                                 \
     /**/
 
-#define CONCEPT_REQUIRES(...)                                                       \
-    template<                                                                       \
-        int CONCEPT_PP_CAT(_concept_requires_, __LINE__) = 42,                      \
-        typename std::enable_if<                                                    \
-            (CONCEPT_PP_CAT(_concept_requires_, __LINE__) == 43) || (__VA_ARGS__),  \
-            int                                                                     \
-        >::type = 0>                                                                \
+#define CONCEPT_REQUIRES(...) template<CONCEPT_REQUIRES_(__VA_ARGS__)> \
     /**/
 
 #if RANGES_CXX_STATIC_ASSERT >= RANGES_CXX_STATIC_ASSERT_17

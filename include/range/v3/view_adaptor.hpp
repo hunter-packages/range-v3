@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-// Copyright Eric Niebler 2014
+// Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -33,19 +33,19 @@ namespace ranges
         {
             template<typename Derived>
             using begin_adaptor_t =
-                decltype(range_access::begin_adaptor(std::declval<Derived &>(), 42));
+                detail::decay_t<decltype(range_access::begin_adaptor(std::declval<Derived &>()))>;
 
             template<typename Derived>
             using end_adaptor_t =
-                decltype(range_access::end_adaptor(std::declval<Derived &>(), 42));
+                detail::decay_t<decltype(range_access::end_adaptor(std::declval<Derived &>()))>;
 
             template<typename Derived>
             using adapted_iterator_t =
-                decltype(std::declval<begin_adaptor_t<Derived>>().begin(std::declval<Derived &>()));
+                detail::decay_t<decltype(std::declval<begin_adaptor_t<Derived>>().begin(std::declval<Derived &>()))>;
 
             template<typename Derived>
             using adapted_sentinel_t =
-                decltype(std::declval<end_adaptor_t<Derived>>().end(std::declval<Derived &>()));
+                detail::decay_t<decltype(std::declval<end_adaptor_t<Derived>>().end(std::declval<Derived &>()))>;
 
             struct adaptor_base_current_mem_fn
             {};
@@ -80,16 +80,17 @@ namespace ranges
               : compressed_pair<BaseIter, Adapt>
             {
                 using compressed_pair<BaseIter, Adapt>::compressed_pair;
+#ifdef RANGES_WORKAROUND_MSVC_688606
+                using value_type = value_type_t<Adapt>;
+#else // ^^^ workaround ^^^ / vvv no workaround vvv
                 using value_type = typename Adapt::value_type;
+#endif // RANGES_WORKAROUND_MSVC_688606
             };
         }
         /// \endcond
 
         /// \addtogroup group-core
         /// @{
-        template<typename Derived>
-        using base_range_t = meta::_t<range_access::base_range<Derived>>;
-
         template<typename BaseIt, typename Adapt>
         struct adaptor_cursor;
 
@@ -107,15 +108,17 @@ namespace ranges
             adaptor_base(detail::any, detail::any = {}, detail::any = {})
             {}
             template<typename Rng>
-            iterator_t<base_range_t<Rng>> begin(Rng &rng) const
-            {
-                return ranges::begin(rng.base());
-            }
+            static constexpr auto begin(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                ranges::begin(rng.base())
+            )
             template<typename Rng>
-            sentinel_t<base_range_t<Rng>> end(Rng &rng) const
-            {
-                return ranges::end(rng.base());
-            }
+            static constexpr auto end(Rng &rng)
+            RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
+            (
+                ranges::end(rng.base())
+            )
             template<typename I, CONCEPT_REQUIRES_(EqualityComparable<I>())>
             static bool equal(I const &it0, I const &it1)
             {
@@ -339,7 +342,7 @@ namespace ranges
                 return ranges::iter_move(first());
             }
             // If the adaptor does not have an iter_move function but overrides the read
-            // member function, apply std::move to the result of calling current.
+            // member function, apply std::move to the result of calling read.
             template<typename A = Adapt,
                 typename R = decltype(std::declval<A const &>().read(std::declval<BaseIter const &>())),
                 typename X = aux::move_t<R>>
@@ -379,7 +382,8 @@ namespace ranges
                 adaptor_cursor_t<D>,
                 adaptor_sentinel<detail::adapted_sentinel_t<D>, detail::end_adaptor_t<D>>>;
 
-        template<typename Derived, typename BaseRng, cardinality Cardinality /*= range_cardinality<BaseRng>::value*/>
+        template<typename Derived, typename BaseRng,
+            cardinality Cardinality /*= range_cardinality<BaseRng>::value*/>
         struct view_adaptor
           : view_facade<Derived, Cardinality>
         {
@@ -389,56 +393,64 @@ namespace ranges
             friend adaptor_base;
             using base_range_t = view::all_t<BaseRng>;
             using view_facade<Derived, Cardinality>::derived;
-            // Mutable here. Const-correctness is enforced below by disabling
-            // begin_cursor/end_cursor if "BaseRng const" does not model
-            // the View concept.
-            mutable base_range_t rng_;
 
-            base_range_t & mutable_base() const
-            {
-                return rng_;
-            }
-            adaptor_base begin_adaptor() const
+            base_range_t rng_;
+
+            constexpr adaptor_base begin_adaptor() const noexcept
             {
                 return {};
             }
-            adaptor_base end_adaptor() const
+            constexpr adaptor_base end_adaptor() const noexcept
             {
                 return {};
             }
 
-            template<typename D = Derived, CONCEPT_REQUIRES_(Same<D, Derived>())>
-            adaptor_cursor_t<D> begin_cursor()
+            template<typename D>
+            static RANGES_CXX14_CONSTEXPR adaptor_cursor_t<D> begin_cursor_(D &d)
+                noexcept(noexcept(adaptor_cursor_t<D>{
+                    std::declval<detail::begin_adaptor_t<D> &>().begin(d),
+                    range_access::begin_adaptor(d)}))
             {
-                auto adapt = range_access::begin_adaptor(derived(), 42);
-                auto pos = adapt.begin(derived());
+                auto adapt = range_access::begin_adaptor(d);
+                auto pos = adapt.begin(d);
                 return {std::move(pos), std::move(adapt)};
             }
             template<typename D = Derived, CONCEPT_REQUIRES_(Same<D, Derived>())>
-            adaptor_sentinel_t<D> end_cursor()
+            RANGES_CXX14_CONSTEXPR auto begin_cursor()
+            RANGES_DECLTYPE_NOEXCEPT(view_adaptor::begin_cursor_(std::declval<D &>()))
             {
-                auto adapt = range_access::end_adaptor(derived(), 42);
-                auto pos = adapt.end(derived());
-                return {std::move(pos), std::move(adapt)};
-            }
-            // Const-correctness is enforced here by only allowing these if the base range
-            // has const begin/end accessors. That disables the const begin()/end() accessors
-            // in view_facade, meaning the derived range type only has mutable iterators.
-            template<typename D = Derived,
-                CONCEPT_REQUIRES_(Same<D, Derived>() && Range<base_range_t const &>())>
-            adaptor_cursor_t<D const> begin_cursor() const
-            {
-                auto adapt = range_access::begin_adaptor(derived(), 42);
-                auto pos = adapt.begin(derived());
-                return {std::move(pos), std::move(adapt)};
+                return view_adaptor::begin_cursor_(derived());
             }
             template<typename D = Derived,
-                CONCEPT_REQUIRES_(Same<D, Derived>() && Range<base_range_t const &>())>
-            adaptor_sentinel_t<D const> end_cursor() const
+                CONCEPT_REQUIRES_(Same<D, Derived>() && Range<base_range_t const>())>
+            RANGES_CXX14_CONSTEXPR auto begin_cursor() const
+            RANGES_DECLTYPE_NOEXCEPT(view_adaptor::begin_cursor_(std::declval<D const &>()))
             {
-                auto adapt = range_access::end_adaptor(derived(), 42);
-                auto pos = adapt.end(derived());
+                return view_adaptor::begin_cursor_(derived());
+            }
+
+            template<typename D>
+            static RANGES_CXX14_CONSTEXPR adaptor_sentinel_t<D> end_cursor_(D &d)
+                noexcept(noexcept(adaptor_sentinel_t<D>{
+                    std::declval<detail::end_adaptor_t<D> &>().end(d),
+                    range_access::end_adaptor(d)}))
+            {
+                auto adapt = range_access::end_adaptor(d);
+                auto pos = adapt.end(d);
                 return {std::move(pos), std::move(adapt)};
+            }
+            template<typename D = Derived, CONCEPT_REQUIRES_(Same<D, Derived>())>
+            RANGES_CXX14_CONSTEXPR auto end_cursor()
+            RANGES_DECLTYPE_NOEXCEPT(view_adaptor::end_cursor_(std::declval<D &>()))
+            {
+                return view_adaptor::end_cursor_(derived());
+            }
+            template<typename D = Derived,
+                CONCEPT_REQUIRES_(Same<D, Derived>() && Range<base_range_t const>())>
+            RANGES_CXX14_CONSTEXPR auto end_cursor() const
+            RANGES_DECLTYPE_NOEXCEPT(view_adaptor::end_cursor_(std::declval<D const &>()))
+            {
+                return view_adaptor::end_cursor_(derived());
             }
         protected:
             ~view_adaptor() = default;
@@ -448,15 +460,15 @@ namespace ranges
             view_adaptor(view_adaptor const &) = default;
             view_adaptor &operator=(view_adaptor &&) = default;
             view_adaptor &operator=(view_adaptor const &) = default;
-            constexpr view_adaptor(BaseRng && rng)
-              : rng_(view::all(static_cast<BaseRng&&>(rng)))
+            explicit constexpr view_adaptor(BaseRng &&rng)
+              : rng_(view::all(static_cast<BaseRng &&>(rng)))
             {}
-            base_range_t & base()
+            RANGES_CXX14_CONSTEXPR base_range_t &base() noexcept
             {
                 return rng_;
             }
             /// \overload
-            base_range_t const & base() const
+            constexpr base_range_t const &base() const noexcept
             {
                 return rng_;
             }

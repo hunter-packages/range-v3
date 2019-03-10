@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -33,7 +33,7 @@ test1()
 {
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {0};
         std::pair<InIter, OutIter> r =
             ranges::transform(InIter(ia), sentinel<int const *>(ia+sa), OutIter(ib),
@@ -49,7 +49,7 @@ test1()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {0};
         auto rng = ranges::make_iterator_range(InIter(ia), sentinel<int const *>(ia + sa));
         std::pair<InIter, OutIter> r =
@@ -66,7 +66,7 @@ test1()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {0};
         auto rng = ranges::make_iterator_range(InIter(ia), sentinel<int const *>(ia + sa));
         auto r =
@@ -88,7 +88,7 @@ test2()
 {
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         std::tuple<InIter1, InIter2, OutIter> r =
             ranges::transform(InIter1(ib), sentinel<int const *>(ib + sa), InIter2(ia),
@@ -105,7 +105,7 @@ test2()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         std::tuple<InIter1, InIter2, OutIter> r =
             ranges::transform(InIter1(ib), sentinel<int const *>(ib + sa),
@@ -123,7 +123,7 @@ test2()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         auto rng0 = ranges::make_iterator_range(InIter1(ib), sentinel<int const *>(ib + sa));
         std::tuple<InIter1, InIter2, OutIter> r =
@@ -141,15 +141,15 @@ test2()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         auto rng0 = ranges::make_iterator_range(InIter1(ib), sentinel<int const *>(ib + sa));
         auto r =
             ranges::transform(std::move(rng0), InIter2(ia),
                               OutIter(ib), std::minus<int>());
-        CHECK(base(std::get<0>(r).get_unsafe()) == ib + sa);
-        CHECK(base(std::get<1>(r)) == ia + sa);
-        CHECK(base(std::get<2>(r)) == ib + sa);
+        CHECK(base(ranges::get<0>(r).get_unsafe()) == ib + sa);
+        CHECK(base(ranges::get<1>(r)) == ia + sa);
+        CHECK(base(ranges::get<2>(r)) == ib + sa);
         CHECK(ib[0] == 1);
         CHECK(ib[1] == 1);
         CHECK(ib[2] == 1);
@@ -159,7 +159,7 @@ test2()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         auto rng0 = ranges::make_iterator_range(InIter1(ib), sentinel<int const *>(ib + sa));
         auto rng1 = ranges::make_iterator_range(InIter2(ia), sentinel<int const *>(ia + sa));
@@ -177,15 +177,15 @@ test2()
 
     {
         int ia[] = {0, 1, 2, 3, 4};
-        constexpr unsigned sa = ranges::size(ia);
+        constexpr auto sa = ranges::size(ia);
         int ib[sa] = {1, 2, 3, 4, 5};
         auto rng0 = ranges::make_iterator_range(InIter1(ib), sentinel<int const *>(ib + sa));
         auto rng1 = ranges::make_iterator_range(InIter2(ia), sentinel<int const *>(ia + sa));
         auto r =
             ranges::transform(std::move(rng0), std::move(rng1), OutIter(ib), std::minus<int>());
-        CHECK(base(std::get<0>(r).get_unsafe()) == ib + sa);
-        CHECK(base(std::get<1>(r).get_unsafe()) == ia + sa);
-        CHECK(base(std::get<2>(r)) == ib + sa);
+        CHECK(base(ranges::get<0>(r).get_unsafe()) == ib + sa);
+        CHECK(base(ranges::get<1>(r).get_unsafe()) == ia + sa);
+        CHECK(base(ranges::get<2>(r)) == ib + sa);
         CHECK(ib[0] == 1);
         CHECK(ib[1] == 1);
         CHECK(ib[2] == 1);

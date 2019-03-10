@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -29,9 +29,6 @@ namespace ranges
         // iterator traits
         template<typename I>
         using value_type_t = concepts::Readable::value_t<I>;
-
-        template<typename I>
-        using reference_t = concepts::Readable::reference_t<I>;
 
         template<typename I>
         using rvalue_reference_t = concepts::Readable::rvalue_reference_t<I>;

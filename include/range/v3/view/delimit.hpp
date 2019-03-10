@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -47,7 +47,8 @@ namespace ranges
                 sentinel_adaptor(Val value)
                   : value_(std::move(value))
                 {}
-                bool empty(iterator_t<Rng> it, sentinel_t<Rng> end) const
+                template<class I, class S>
+                bool empty(I const &it, S const &end) const
                 {
                     return it == end || *it == value_;
                 }

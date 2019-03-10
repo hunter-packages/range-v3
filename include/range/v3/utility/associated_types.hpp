@@ -74,6 +74,28 @@ namespace ranges
         {};
 
         ////////////////////////////////////////////////////////////////////////////////////////
+        /// \cond
+        namespace detail
+        {
+            template<typename I,
+#ifdef RANGES_WORKAROUND_MSVC_683388
+                typename R = meta::if_<
+                    meta::and_<std::is_pointer<uncvref_t<I>>,
+                        std::is_array<std::remove_pointer_t<uncvref_t<I>>>>,
+                    std::add_lvalue_reference_t<std::remove_pointer_t<uncvref_t<I>>>,
+                    decltype(*std::declval<I &>())>,
+#else
+                typename R = decltype(*std::declval<I &>()),
+#endif
+                typename = R&>
+            using reference_t_ = R;
+        }
+        /// \endcond
+
+        template<typename R>
+        using reference_t = detail::reference_t_<R>;
+
+        ////////////////////////////////////////////////////////////////////////////////////////
         template<typename T>
         struct size_type
           : meta::lazy::let<std::make_unsigned<meta::lazy::_t<difference_type<T>>>>

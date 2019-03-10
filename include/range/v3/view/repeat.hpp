@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -15,11 +15,11 @@
 #define RANGES_V3_VIEW_REPEAT_HPP
 
 #include <utility>
-#include <range/v3/detail/satisfy_boost_range.hpp>
 #include <range/v3/range_fwd.hpp>
 #include <range/v3/range_concepts.hpp>
 #include <range/v3/view_facade.hpp>
-#include <range/v3/utility/functional.hpp>
+#include <range/v3/detail/satisfy_boost_range.hpp>
+#include <range/v3/utility/semiregular.hpp>
 #include <range/v3/utility/static_const.hpp>
 
 namespace ranges
@@ -41,19 +41,20 @@ namespace ranges
           : view_facade<repeat_view<Val>, infinite>
         {
         private:
-            Val value_;
+            semiregular_t<Val> value_;
             friend range_access;
 
             struct cursor
             {
             private:
                 Val const *value_;
+                std::ptrdiff_t n_ = 0;
             public:
                 cursor() = default;
                 explicit cursor(Val const &value)
                   : value_(std::addressof(value))
                 {}
-                Val const &read() const
+                Val const &read() const noexcept
                 {
                     return *value_;
                 }
@@ -61,19 +62,25 @@ namespace ranges
                 {
                     return false;
                 }
-                bool equal(cursor const &) const
+                bool equal(cursor const &that) const
                 {
-                    return true;
+                    return n_ == that.n_;
                 }
                 void next()
-                {}
-                void prev()
-                {}
-                void advance(std::ptrdiff_t)
-                {}
-                std::ptrdiff_t distance_to(cursor const &) const
                 {
-                    return 0;
+                    ++n_;
+                }
+                void prev()
+                {
+                    --n_;
+                }
+                void advance(std::ptrdiff_t d)
+                {
+                    n_ += d;
+                }
+                std::ptrdiff_t distance_to(cursor const &that) const
+                {
+                    return that.n_ - n_;
                 }
             };
             cursor begin_cursor() const
@@ -92,19 +99,20 @@ namespace ranges
             struct repeat_fn
             {
                 template<typename Val,
-                    CONCEPT_REQUIRES_(SemiRegular<Val>())>
+                    CONCEPT_REQUIRES_(CopyConstructible<Val>() && std::is_object<Val>())>
                 repeat_view<Val> operator()(Val value) const
                 {
                     return repeat_view<Val>{std::move(value)};
                 }
             #ifndef RANGES_DOXYGEN_INVOKED
                 template<typename Val,
-                    CONCEPT_REQUIRES_(!SemiRegular<Val>())>
+                    CONCEPT_REQUIRES_(!(CopyConstructible<Val>() && std::is_object<Val>()))>
                 void operator()(Val) const
                 {
-                    CONCEPT_ASSERT_MSG(SemiRegular<Val>(),
-                        "The value passed to view::repeat must be SemiRegular; that is, it needs "
-                        "to be default constructible, copy and move constructible, and destructible.");
+                    CONCEPT_ASSERT_MSG(std::is_object<Val>(),
+                        "The value passed to view::repeat must be an object.");
+                    CONCEPT_ASSERT_MSG(CopyConstructible<Val>(),
+                        "The value passed to view::repeat must be CopyConstructible.");
                 }
             #endif
             };

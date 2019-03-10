@@ -1,7 +1,7 @@
 /// \file
 // Range v3 library
 //
-//  Copyright Eric Niebler 2013-2014
+//  Copyright Eric Niebler 2013-present
 //  Copyright Casey Carter 2016
 //
 //  Use, modification and distribution is subject to the
@@ -24,7 +24,6 @@
 #include <range/v3/utility/static_const.hpp>
 
 RANGES_DIAGNOSTIC_PUSH
-RANGES_DIAGNOSTIC_IGNORE_PRAGMAS
 RANGES_DIAGNOSTIC_IGNORE_CXX17_COMPAT
 
 namespace ranges
@@ -41,8 +40,8 @@ namespace ranges
                 is_reference_wrapper<uncvref_t<T>>>
         {};
 
-        template<typename T, bool RValue>
-        struct is_reference_wrapper<reference_wrapper<T, RValue>>
+        template<typename T>
+        struct is_reference_wrapper<reference_wrapper<T>>
           : std::true_type
         {};
 
@@ -103,7 +102,7 @@ namespace ranges
         public:
             template<typename F, typename Obj, typename First, typename... Rest,
                 meta::if_c<detail::is_function<F>::value, int> = 0>
-            constexpr auto operator()(F (Obj::*ptr), First && first, Rest &&... rest) const
+            constexpr auto operator()(F Obj::*ptr, First && first, Rest &&... rest) const
             RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 invoke_member_fn(std::is_base_of<Obj, detail::decay_t<First>>{},
@@ -112,7 +111,7 @@ namespace ranges
             )
             template<typename Data, typename Obj, typename First,
                 meta::if_c<!detail::is_function<Data>::value, int> = 0>
-            constexpr auto operator()(Data (Obj::*ptr), First && first) const
+            constexpr auto operator()(Data Obj::*ptr, First && first) const
             RANGES_DECLTYPE_AUTO_RETURN_NOEXCEPT
             (
                 invoke_member_data(std::is_base_of<Obj, detail::decay_t<First>>{},
@@ -129,29 +128,73 @@ namespace ranges
         };
         RANGES_INLINE_VARIABLE(invoke_fn, invoke)
 
-        template<typename T, bool RValue /* = false*/>
-        struct reference_wrapper
+        /// \cond
+        namespace detail
+        {
+            template<typename T>
+            struct reference_wrapper_
+            {
+                T *t_ = nullptr;
+                constexpr reference_wrapper_() = default;
+                constexpr reference_wrapper_(T &t) noexcept
+                  : t_(std::addressof(t))
+                {}
+                constexpr reference_wrapper_(T &&) = delete;
+                constexpr T &get() const noexcept
+                {
+                    return *t_;
+                }
+            };
+            template<typename T>
+            struct reference_wrapper_<T &> : reference_wrapper_<T>
+            {
+                using reference_wrapper_<T>::reference_wrapper_;
+            };
+            template<typename T>
+            struct reference_wrapper_<T &&>
+            {
+                T *t_ = nullptr;
+                constexpr reference_wrapper_() = default;
+                constexpr reference_wrapper_(T &&t) noexcept
+                  : t_(std::addressof(t))
+                {}
+                constexpr T &&get() const noexcept
+                {
+                    return static_cast<T &&>(*t_);
+                }
+            };
+        }
+        /// \endcond
+
+        // Can be used to store rvalue references in addition to lvalue references.
+        // Also, see: https://wg21.link/lwg2993
+        template<typename T>
+        struct reference_wrapper : private detail::reference_wrapper_<T>
         {
         private:
-            T *t_;
+            using base_ = detail::reference_wrapper_<T>;
         public:
-            using type = T;
-            using reference = meta::if_c<RValue, T &&, T &>;
+            using type = meta::_t<std::remove_reference<T>>;
+            using reference = meta::if_<std::is_reference<T>, T, T &>;
+
             constexpr reference_wrapper() = default;
-            constexpr reference_wrapper(reference t) noexcept
-              : t_(std::addressof(t))
+            template<typename U,
+                CONCEPT_REQUIRES_(Constructible<base_, U>() &&
+                    !Same<uncvref_t<U>, reference_wrapper>())>
+            constexpr reference_wrapper(U &&u)
+                noexcept(std::is_nothrow_constructible<base_, U>::value)
+              : detail::reference_wrapper_<T>{static_cast<U &&>(u)}
             {}
-            reference_wrapper(meta::if_c<RValue, T &, T &&>) = delete;
             constexpr reference get() const noexcept
             {
-                return static_cast<reference>(*t_);
+                return this->base_::get();
             }
             constexpr operator reference() const noexcept
             {
                 return get();
             }
-            CONCEPT_REQUIRES(!RValue)
-            operator std::reference_wrapper<T> () const noexcept
+            CONCEPT_REQUIRES(!std::is_rvalue_reference<T>::value)
+            operator std::reference_wrapper<type> () const noexcept
             {
                 return {get()};
             }
@@ -164,14 +207,48 @@ namespace ranges
             }
         };
 
-        template<typename Sig, typename Enable /*= void*/>
-        struct result_of {};
-        template<typename Fun, typename...Args>
-        struct result_of<Fun(Args...), meta::void_<
-            decltype(invoke(std::declval<Fun>(), std::declval<Args>()...))>>
+#ifdef RANGES_WORKAROUND_MSVC_701385
+        /// \cond
+        namespace detail
         {
-            using type = decltype(invoke(std::declval<Fun>(), std::declval<Args>()...));
-        };
+            template<typename Void, typename Fun, typename...Args>
+            struct _invoke_result_
+            {};
+
+            template<typename Fun, typename...Args>
+            struct _invoke_result_<
+                meta::void_<decltype(invoke(std::declval<Fun>(), std::declval<Args>()...))>,
+                Fun, Args...>
+            {
+                using type = decltype(invoke(std::declval<Fun>(), std::declval<Args>()...));
+            };
+        }
+        /// \endcond
+
+        template<typename Fun, typename...Args>
+        using invoke_result = detail::_invoke_result_<void, Fun, Args...>;
+
+        template<typename Fun, typename...Args>
+        using invoke_result_t = meta::_t<invoke_result<Fun, Args...>>;
+#else // RANGES_WORKAROUND_MSVC_701385
+        template<typename Fun, typename...Args>
+        using invoke_result_t =
+            decltype(invoke(std::declval<Fun>(), std::declval<Args>()...));
+
+        template<typename Fun, typename...Args>
+        struct invoke_result
+          : meta::defer<invoke_result_t, Fun, Args...>
+        {};
+#endif // RANGES_WORKAROUND_MSVC_701385
+
+        template<typename Sig>
+        struct result_of
+        {};
+
+        template<typename Fun, typename...Args>
+        struct result_of<Fun(Args...)>
+          : meta::defer<invoke_result_t, Fun, Args...>
+        {};
     } // namespace v3
 } // namespace ranges
 

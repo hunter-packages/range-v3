@@ -1,6 +1,6 @@
 // Range v3 library
 //
-//  Copyright Eric Niebler 2014
+//  Copyright Eric Niebler 2014-present
 //
 //  Use, modification and distribution is subject to the
 //  Boost Software License, Version 1.0. (See accompanying
@@ -118,6 +118,25 @@ int main()
         CONCEPT_ASSERT(!ForwardRange<R>());
         CONCEPT_ASSERT(Same<int const&, range_reference_t<R>>());
         ::check_equal(rng, {2,3});
+    }
+
+    {
+        // regression test for #728
+        auto rng1 = view::iota(1) | view::chunk(6) | view::take(3);
+        int i = 2;
+        RANGES_FOR(auto o1, rng1)
+        {
+            auto rng2 = o1 | view::drop(1);
+            ::check_equal(rng2, {i, i+1, i+2, i+3, i+4});
+            i += 6;
+        }
+    }
+
+    {
+        // regression test for #813
+        static int const some_ints[] = {0,1,2,3};
+        auto rng = some_ints | view::drop(10);
+        CHECK(empty(rng));
     }
 
     return test_result();
